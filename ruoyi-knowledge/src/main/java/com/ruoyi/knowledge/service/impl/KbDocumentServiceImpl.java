@@ -90,7 +90,7 @@ public class KbDocumentServiceImpl implements IKbDocumentService
         }
         if (query.getSpaceId() != null && !spaceIds.contains(query.getSpaceId()))
         {
-            throw new ServiceException("无权访问该知识空间");
+            throw new ServiceException("无权访问该知识空间", 403);
         }
         List<KbDocument> documents = documentMapper.selectReadableList(query, spaceIds);
         for (KbDocument document : documents)
@@ -111,11 +111,11 @@ public class KbDocumentServiceImpl implements IKbDocumentService
         KbDocument document = documentMapper.selectById(id);
         if (document == null)
         {
-            throw new ServiceException("文档不存在");
+            throw new ServiceException("文档不存在", 404);
         }
         if (!permissionService.canReadSpace(document.getSpaceId()))
         {
-            throw new ServiceException("无权访问该文档");
+            throw new ServiceException("无权访问该文档", 403);
         }
         return document;
     }
@@ -127,24 +127,24 @@ public class KbDocumentServiceImpl implements IKbDocumentService
     {
         if (file == null || file.isEmpty())
         {
-            throw new ServiceException("上传文件不能为空");
+            throw new ServiceException("上传文件不能为空", 400);
         }
         if (spaceId == null)
         {
-            throw new ServiceException("请选择知识空间");
+            throw new ServiceException("请选择知识空间", 400);
         }
         if (!permissionService.canManageSpace(spaceId) && !permissionService.canReadSpace(spaceId))
         {
-            throw new ServiceException("无权向该知识空间上传文档");
+            throw new ServiceException("无权向该知识空间上传文档", 403);
         }
         KbSpace space = spaceMapper.selectById(spaceId);
         if (space == null)
         {
-            throw new ServiceException("知识空间不存在");
+            throw new ServiceException("知识空间不存在", 404);
         }
         if (!KbConstants.SPACE_ACTIVE.equals(space.getSpaceStatus()))
         {
-            throw new ServiceException("知识空间已停用，无法上传文档");
+            throw new ServiceException("知识空间已停用，无法上传文档", 400);
         }
         if (file.getSize() > uploadMaxSize)
         {
@@ -153,19 +153,19 @@ public class KbDocumentServiceImpl implements IKbDocumentService
         String originalName = file.getOriginalFilename();
         if (StringUtils.isEmpty(originalName))
         {
-            throw new ServiceException("文件名不能为空");
+            throw new ServiceException("文件名不能为空", 400);
         }
         originalName = Paths.get(originalName).getFileName().toString();
         String extension = extensionOf(originalName);
         if (!ALLOWED_EXTENSIONS.contains(extension))
         {
-            throw new ServiceException("不支持的文件类型，仅允许 PDF、DOC、DOCX、XLS、XLSX、TXT、PNG、JPG、JPEG");
+            throw new ServiceException("不支持的文件类型，仅允许 PDF、DOC、DOCX、XLS、XLSX、TXT、PNG、JPG、JPEG", 400);
         }
         String contentType = file.getContentType();
         if (StringUtils.isNotEmpty(contentType) && contentType.toLowerCase(Locale.ROOT).startsWith("application/x-")
                 && !"application/x-zip-compressed".equals(contentType.toLowerCase(Locale.ROOT)))
         {
-            throw new ServiceException("文件类型校验失败");
+            throw new ServiceException("文件类型校验失败", 400);
         }
         String resolvedStableKey = StringUtils.isEmpty(stableKey) ? stableKeyOf(originalName) : stableKey;
         Integer maxVersion = documentMapper.selectMaxVersion(spaceId, resolvedStableKey);
@@ -303,12 +303,12 @@ public class KbDocumentServiceImpl implements IKbDocumentService
         KbDocument document = requireReadable(id);
         if (!permissionService.canManageSpace(document.getSpaceId()))
         {
-            throw new ServiceException("无权重试该文档");
+            throw new ServiceException("无权重试该文档", 403);
         }
         KbSpace space = spaceMapper.selectById(document.getSpaceId());
         if (space == null)
         {
-            throw new ServiceException("知识空间不存在");
+            throw new ServiceException("知识空间不存在", 404);
         }
         KbIndexJob query = new KbIndexJob();
         query.setDocumentId(document.getId());
@@ -346,7 +346,7 @@ public class KbDocumentServiceImpl implements IKbDocumentService
         catch (RagFlowException e)
         {
             log.warn("重试索引失败: {}", e.getMessage());
-            throw new ServiceException("知识服务暂不可用，请稍后重试");
+            throw new ServiceException("知识服务暂不可用，请稍后重试", 503);
         }
         return document;
     }
@@ -357,7 +357,7 @@ public class KbDocumentServiceImpl implements IKbDocumentService
         KbDocument document = requireReadable(id);
         if (!permissionService.canManageSpace(document.getSpaceId()))
         {
-            throw new ServiceException("无权停用该文档");
+            throw new ServiceException("无权停用该文档", 403);
         }
         KbSpace space = spaceMapper.selectById(document.getSpaceId());
         if (space != null && StringUtils.isNotEmpty(document.getRagDocumentId()))
@@ -384,12 +384,12 @@ public class KbDocumentServiceImpl implements IKbDocumentService
                 && !KbConstants.DOC_INDEXING.equals(document.getParseStatus())
                 && !KbConstants.DOC_UPLOADED.equals(document.getParseStatus()))
         {
-            throw new ServiceException("文档当前不可下载");
+            throw new ServiceException("文档当前不可下载", 400);
         }
         Path path = Paths.get(document.getFilePath()).toAbsolutePath().normalize();
         if (!Files.exists(path))
         {
-            throw new ServiceException("文档文件不存在");
+            throw new ServiceException("文档文件不存在", 404);
         }
         return path;
     }
@@ -400,7 +400,7 @@ public class KbDocumentServiceImpl implements IKbDocumentService
         KbDocument document = requireReadable(id);
         if (!permissionService.canManageSpace(document.getSpaceId()))
         {
-            throw new ServiceException("无权维护该文档的业务关联");
+            throw new ServiceException("无权维护该文档的业务关联", 403);
         }
         if (StringUtils.isEmpty(link.getBusinessType()) || link.getBusinessId() == null)
         {
@@ -422,12 +422,12 @@ public class KbDocumentServiceImpl implements IKbDocumentService
         KbDocument document = requireReadable(id);
         if (!permissionService.canManageSpace(document.getSpaceId()))
         {
-            throw new ServiceException("无权维护该文档的业务关联");
+            throw new ServiceException("无权维护该文档的业务关联", 403);
         }
         KbObjectLink link = objectLinkMapper.selectById(linkId);
         if (link == null || !id.equals(link.getDocumentId()))
         {
-            throw new ServiceException("关联记录不存在");
+            throw new ServiceException("关联记录不存在", 404);
         }
         return objectLinkMapper.deleteById(linkId);
     }

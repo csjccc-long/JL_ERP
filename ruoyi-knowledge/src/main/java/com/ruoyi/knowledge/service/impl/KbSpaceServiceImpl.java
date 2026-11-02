@@ -61,11 +61,11 @@ public class KbSpaceServiceImpl implements IKbSpaceService
         KbSpace space = spaceMapper.selectById(id);
         if (space == null)
         {
-            throw new ServiceException("知识空间不存在");
+            throw new ServiceException("知识空间不存在", 404);
         }
         if (!permissionService.canReadSpace(id))
         {
-            throw new ServiceException("无权访问该知识空间");
+            throw new ServiceException("无权访问该知识空间", 403);
         }
         return space;
     }
@@ -117,7 +117,7 @@ public class KbSpaceServiceImpl implements IKbSpaceService
         KbSpace existing = spaceMapper.selectById(space.getId());
         if (existing == null)
         {
-            throw new ServiceException("知识空间不存在");
+            throw new ServiceException("知识空间不存在", 404);
         }
         space.setRagDatasetId(existing.getRagDatasetId());
         space.setSpaceStatus(existing.getSpaceStatus());
@@ -132,7 +132,7 @@ public class KbSpaceServiceImpl implements IKbSpaceService
         KbSpace existing = spaceMapper.selectById(id);
         if (existing == null)
         {
-            throw new ServiceException("知识空间不存在");
+            throw new ServiceException("知识空间不存在", 404);
         }
         if (StringUtils.isNotEmpty(existing.getRagDatasetId()))
         {
@@ -197,7 +197,7 @@ public class KbSpaceServiceImpl implements IKbSpaceService
     {
         if (!permissionService.canManageSpace(spaceId))
         {
-            throw new ServiceException("无权管理该知识空间");
+            throw new ServiceException("无权管理该知识空间", 403);
         }
     }
 }
