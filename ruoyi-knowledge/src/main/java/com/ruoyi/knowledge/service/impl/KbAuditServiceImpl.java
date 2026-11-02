@@ -55,7 +55,7 @@ public class KbAuditServiceImpl implements IKbAuditService
         KbQueryAudit audit = queryAuditMapper.selectByTraceId(traceId);
         if (audit == null)
         {
-            throw new ServiceException("审计记录不存在");
+            throw new ServiceException("审计记录不存在", 404);
         }
         return audit;
     }

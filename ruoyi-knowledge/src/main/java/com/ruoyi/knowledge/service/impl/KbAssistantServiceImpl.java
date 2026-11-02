@@ -180,7 +180,7 @@ public class KbAssistantServiceImpl implements IKbAssistantService
         LoginUser loginUser = SecurityUtils.getLoginUser();
         if (session == null || !loginUser.getUserId().equals(session.getUserId()))
         {
-            throw new ServiceException("会话不存在或无权访问");
+            throw new ServiceException("会话不存在或无权访问", 403);
         }
         return session;
     }
@@ -343,53 +343,67 @@ public class KbAssistantServiceImpl implements IKbAssistantService
         List<KbAnswerCitation> citations = new ArrayList<KbAnswerCitation>();
         List<Map<String, Object>> citationPayloads = new ArrayList<Map<String, Object>>();
         StringBuilder answer = new StringBuilder();
-        try
+        int attempt = 0;
+        while (true)
         {
-            ragFlowClient.streamChat(body, new ChatStreamHandler()
+            try
             {
-                @Override
-                public void onDelta(String delta)
+                ragFlowClient.streamChat(body, new ChatStreamHandler()
                 {
-                    answer.append(delta);
-                    sendDelta(emitter, delta);
-                }
-
-                @Override
-                public void onReference(JSONArray chunks)
-                {
-                    try
+                    @Override
+                    public void onDelta(String delta)
                     {
-                        collectCitations(chunks, ragDocumentIds, documentIds, citations, citationPayloads);
+                        answer.append(delta);
+                        sendDelta(emitter, delta);
                     }
-                    catch (RuntimeException e)
-                    {
-                        log.warn("引用解析失败 traceId={}: {}", traceId, e.getMessage());
-                    }
-                }
 
-                @Override
-                public void onDone()
-                {
-                    // 由外层统一收尾
-                }
-            });
-        }
-        catch (RagFlowException e)
-        {
-            log.warn("RAGFlow 问答失败 traceId={}: {}", traceId, e.getMessage());
-            String text = answer.length() == 0 ? "知识服务暂不可用，请稍后重试。ERP 业务操作不受影响。" : answer.toString();
-            if (answer.length() == 0)
-            {
-                sendDelta(emitter, text);
+                    @Override
+                    public void onReference(JSONArray chunks)
+                    {
+                        try
+                        {
+                            collectCitations(chunks, ragDocumentIds, documentIds, citations, citationPayloads);
+                        }
+                        catch (RuntimeException e)
+                        {
+                            log.warn("引用解析失败 traceId={}: {}", traceId, e.getMessage());
+                        }
+                    }
+
+                    @Override
+                    public void onDone()
+                    {
+                        // 由外层统一收尾
+                    }
+                });
+                break;
             }
-            sendError(emitter, traceId, KbConstants.AUDIT_UNAVAILABLE, "知识服务暂不可用");
-            saveAssistantMessage(session.getId(), text, null, traceId, begin);
-            audit.setStatus(KbConstants.AUDIT_UNAVAILABLE);
-            audit.setErrorMessage("RAGFlow 调用失败");
-            audit.setLatencyMs((int) (System.currentTimeMillis() - begin));
-            auditService.record(audit);
-            emitter.complete();
-            return;
+            catch (RagFlowException e)
+            {
+                // 未产生任何增量内容时重试一次，覆盖 RAGFlow 偶发的服务端连接错误
+                if (answer.length() == 0 && attempt < 1)
+                {
+                    attempt++;
+                    citations.clear();
+                    citationPayloads.clear();
+                    log.warn("RAGFlow 问答失败，重试第 {} 次 traceId={}: {}", attempt, traceId, e.getMessage());
+                    continue;
+                }
+                log.warn("RAGFlow 问答失败 traceId={}: {}", traceId, e.getMessage());
+                String text = answer.length() == 0 ? "知识服务暂不可用，请稍后重试。ERP 业务操作不受影响。" : answer.toString();
+                if (answer.length() == 0)
+                {
+                    sendDelta(emitter, text);
+                }
+                sendError(emitter, traceId, KbConstants.AUDIT_UNAVAILABLE, "知识服务暂不可用");
+                saveAssistantMessage(session.getId(), text, null, traceId, begin);
+                audit.setStatus(KbConstants.AUDIT_UNAVAILABLE);
+                audit.setErrorMessage("RAGFlow 调用失败");
+                audit.setLatencyMs((int) (System.currentTimeMillis() - begin));
+                auditService.record(audit);
+                emitter.complete();
+                return;
+            }
         }
 
         String content = answer.toString();
