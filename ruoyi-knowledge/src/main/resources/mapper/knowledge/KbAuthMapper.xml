@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.knowledge.mapper.KbAuthMapper">
+
+    <select id="selectReadableSpaceIds" resultType="java.lang.Long">
+        select distinct s.id
+        from kb_space s
+        where s.space_status = 'ACTIVE'
+          and (
+            s.owner_id = #{userId}
+            or exists (
+              select 1 from kb_space_acl a
+              where a.space_id = s.id
+                and (
+                  (a.subject_type = 'USER' and a.subject_id = #{userId})
+                  or (a.subject_type = 'ROLE' and a.subject_id in (
+                        select ur.role_id from sys_user_role ur where ur.user_id = #{userId}))
+                  or (a.subject_type = 'DEPT' and a.subject_id in (
+                        select d.dept_id from sys_dept d
+                        where d.dept_id = #{deptId} or find_in_set(#{deptId}, d.ancestors)))
+                )
+            )
+          )
+    </select>
+
+    <select id="selectReadyDocuments" resultType="KbDocument">
+        select id, space_id, document_name, stable_key, document_version, is_current, file_path, file_size,
+               mime_type, checksum_sha256, rag_document_id, parse_status, chunk_count, token_count,
+               error_message, uploaded_by, ready_time, dept_id, create_by, create_time, update_by, update_time, version
+        from kb_document
+        where parse_status = 'READY' and is_current = 1 and rag_document_id is not null
+          and space_id in
+        <foreach collection="spaceIds" item="spaceId" open="(" separator="," close=")">
+            #{spaceId}
+        </foreach>
+    </select>
+
+    <select id="selectLinksByDocumentIds" resultType="KbObjectLink">
+        select id, document_id, business_type, business_id, relation_type, create_by, create_time
+        from kb_object_link
+        where document_id in
+        <foreach collection="documentIds" item="documentId" open="(" separator="," close=")">
+            #{documentId}
+        </foreach>
+    </select>
+
+    <select id="countManageableSpace" resultType="int">
+        select count(1) from kb_space s
+        where s.id = #{spaceId}
+          and (
+            s.owner_id = #{userId}
+            or exists (
+              select 1 from kb_space_acl a
+              where a.space_id = s.id and a.permission_level = 'MANAGE'
+                and (
+                  (a.subject_type = 'USER' and a.subject_id = #{userId})
+                  or (a.subject_type = 'ROLE' and a.subject_id in (
+                        select ur.role_id from sys_user_role ur where ur.user_id = #{userId}))
+                  or (a.subject_type = 'DEPT' and a.subject_id in (
+                        select d.dept_id from sys_dept d
+                        where d.dept_id = #{deptId} or find_in_set(#{deptId}, d.ancestors)))
+                )
+            )
+          )
+    </select>
+
+</mapper>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.erp.mapper.ErpSupplierMapper">
+
+    <sql id="selectErpSupplierVo">
+        select t.* from erp_supplier t 
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="ErpSupplier">
+        <include refid="selectErpSupplierVo"/>
+        where t.id = #{id}
+    </select>
+
+    <select id="selectErpSupplierList" parameterType="ErpSupplier" resultType="ErpSupplier">
+        <include refid="selectErpSupplierVo"/>
+        <where>
+            <if test="supplierCode != null and supplierCode != ''">and t.supplier_code like concat('%', #{supplierCode}, '%')</if>
+            <if test="supplierName != null and supplierName != ''">and t.supplier_name like concat('%', #{supplierName}, '%')</if>
+            <if test="creditCode != null and creditCode != ''">and t.credit_code like concat('%', #{creditCode}, '%')</if>
+            <if test="supplierCategory != null and supplierCategory != ''">and t.supplier_category = #{supplierCategory}</if>
+            <if test="admissionStatus != null and admissionStatus != ''">and t.admission_status = #{admissionStatus}</if>
+            <if test="riskLevel != null and riskLevel != ''">and t.risk_level = #{riskLevel}</if>
+            <if test="ownerId != null">and t.owner_id = #{ownerId}</if>
+            <if test="params.dataScope != null and params.dataScope != ''">${params.dataScope}</if>
+        </where>
+        order by t.id desc
+    </select>
+
+    <insert id="insertErpSupplier" parameterType="ErpSupplier" useGeneratedKeys="true" keyProperty="id">
+        insert into erp_supplier (supplier_code, supplier_name, credit_code, supplier_category, contact_name, contact_phone, email, address, bank_name, bank_account, tax_no, admission_status, risk_level, owner_id, admission_time, dept_id, create_by, create_time, remark) values (#{supplierCode}, #{supplierName}, #{creditCode}, #{supplierCategory}, #{contactName}, #{contactPhone}, #{email}, #{address}, #{bankName}, #{bankAccount}, #{taxNo}, #{admissionStatus}, #{riskLevel}, #{ownerId}, #{admissionTime}, #{deptId}, #{createBy}, sysdate(), #{remark})
+    </insert>
+
+    <update id="updateErpSupplier" parameterType="ErpSupplier">
+        update erp_supplier
+        <set>
+            <if test="supplierCode != null and supplierCode != ''">supplier_code = #{supplierCode},</if>
+            <if test="supplierName != null and supplierName != ''">supplier_name = #{supplierName},</if>
+            <if test="creditCode != null and creditCode != ''">credit_code = #{creditCode},</if>
+            <if test="supplierCategory != null and supplierCategory != ''">supplier_category = #{supplierCategory},</if>
+            <if test="contactName != null and contactName != ''">contact_name = #{contactName},</if>
+            <if test="contactPhone != null and contactPhone != ''">contact_phone = #{contactPhone},</if>
+            <if test="email != null and email != ''">email = #{email},</if>
+            <if test="address != null and address != ''">address = #{address},</if>
+            <if test="bankName != null and bankName != ''">bank_name = #{bankName},</if>
+            <if test="bankAccount != null and bankAccount != ''">bank_account = #{bankAccount},</if>
+            <if test="taxNo != null and taxNo != ''">tax_no = #{taxNo},</if>
+            <if test="admissionStatus != null and admissionStatus != ''">admission_status = #{admissionStatus},</if>
+            <if test="riskLevel != null and riskLevel != ''">risk_level = #{riskLevel},</if>
+            <if test="ownerId != null">owner_id = #{ownerId},</if>
+            <if test="admissionTime != null">admission_time = #{admissionTime},</if>
+            <if test="deptId != null">dept_id = #{deptId},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate(),
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from erp_supplier where id = #{id}
+    </delete>
+
+    <delete id="deleteByIds" parameterType="Long">
+        delete from erp_supplier where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+</mapper>

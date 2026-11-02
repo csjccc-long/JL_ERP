@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.erp.mapper.ErpReceiptMapper">
+
+    <sql id="selectErpReceiptVo">
+        select t.*, o.order_no as order_no, s.supplier_name as supplier_name, w.warehouse_name as warehouse_name from erp_receipt t left join erp_purchase_order o on o.id = t.order_id left join erp_supplier s on s.id = o.supplier_id left join erp_warehouse w on w.id = t.warehouse_id
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="ErpReceipt">
+        <include refid="selectErpReceiptVo"/>
+        where t.id = #{id}
+    </select>
+
+    <select id="selectErpReceiptList" parameterType="ErpReceipt" resultType="ErpReceipt">
+        <include refid="selectErpReceiptVo"/>
+        <where>
+            <if test="receiptNo != null and receiptNo != ''">and t.receipt_no like concat('%', #{receiptNo}, '%')</if>
+            <if test="orderId != null">and t.order_id = #{orderId}</if>
+            <if test="warehouseId != null">and t.warehouse_id = #{warehouseId}</if>
+            <if test="receiptStatus != null and receiptStatus != ''">and t.receipt_status = #{receiptStatus}</if>
+            <if test="idempotencyKey != null and idempotencyKey != ''">and t.idempotency_key = #{idempotencyKey}</if>
+            <if test="params.dataScope != null and params.dataScope != ''">${params.dataScope}</if>
+        </where>
+        order by t.id desc
+    </select>
+
+    <insert id="insertErpReceipt" parameterType="ErpReceipt" useGeneratedKeys="true" keyProperty="id">
+        insert into erp_receipt (receipt_no, order_id, warehouse_id, receipt_date, quality_note, receipt_status, confirmed_by, confirmed_time, idempotency_key, dept_id, create_by, create_time, remark) values (#{receiptNo}, #{orderId}, #{warehouseId}, #{receiptDate}, #{qualityNote}, #{receiptStatus}, #{confirmedBy}, #{confirmedTime}, #{idempotencyKey}, #{deptId}, #{createBy}, sysdate(), #{remark})
+    </insert>
+
+    <update id="updateErpReceipt" parameterType="ErpReceipt">
+        update erp_receipt
+        <set>
+            <if test="receiptNo != null and receiptNo != ''">receipt_no = #{receiptNo},</if>
+            <if test="orderId != null">order_id = #{orderId},</if>
+            <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
+            <if test="receiptDate != null">receipt_date = #{receiptDate},</if>
+            <if test="qualityNote != null and qualityNote != ''">quality_note = #{qualityNote},</if>
+            <if test="receiptStatus != null and receiptStatus != ''">receipt_status = #{receiptStatus},</if>
+            <if test="confirmedBy != null">confirmed_by = #{confirmedBy},</if>
+            <if test="confirmedTime != null">confirmed_time = #{confirmedTime},</if>
+            <if test="idempotencyKey != null and idempotencyKey != ''">idempotency_key = #{idempotencyKey},</if>
+            <if test="deptId != null">dept_id = #{deptId},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate(),
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from erp_receipt where id = #{id}
+    </delete>
+
+    <delete id="deleteByIds" parameterType="Long">
+        delete from erp_receipt where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+</mapper>

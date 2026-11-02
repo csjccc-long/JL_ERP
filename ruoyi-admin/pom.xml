@@ -36,6 +36,12 @@
             <artifactId>mysql-connector-j</artifactId>
         </dependency>
 
+        <!-- 健康检查（/actuator/health）-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
         <!-- 核心模块-->
         <dependency>
             <groupId>com.ruoyi</groupId>
@@ -52,6 +58,18 @@
         <dependency>
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-generator</artifactId>
+        </dependency>
+
+        <!-- ERP业务模块-->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-erp</artifactId>
+        </dependency>
+
+        <!-- 知识与智能助手模块-->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-knowledge</artifactId>
         </dependency>
 
     </dependencies>

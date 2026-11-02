@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.erp.mapper.ErpPurchaseOrderMapper">
+
+    <sql id="selectErpPurchaseOrderVo">
+        select t.*, s.supplier_name as supplier_name, pr.request_no as request_no, c.contract_no as contract_no from erp_purchase_order t left join erp_supplier s on s.id = t.supplier_id left join erp_purchase_request pr on pr.id = t.request_id left join erp_contract c on c.id = t.contract_id
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="ErpPurchaseOrder">
+        <include refid="selectErpPurchaseOrderVo"/>
+        where t.id = #{id}
+    </select>
+
+    <select id="selectErpPurchaseOrderList" parameterType="ErpPurchaseOrder" resultType="ErpPurchaseOrder">
+        <include refid="selectErpPurchaseOrderVo"/>
+        <where>
+            <if test="orderNo != null and orderNo != ''">and t.order_no like concat('%', #{orderNo}, '%')</if>
+            <if test="requestId != null">and t.request_id = #{requestId}</if>
+            <if test="supplierId != null">and t.supplier_id = #{supplierId}</if>
+            <if test="contractId != null">and t.contract_id = #{contractId}</if>
+            <if test="orderStatus != null and orderStatus != ''">and t.order_status = #{orderStatus}</if>
+            <if test="params.dataScope != null and params.dataScope != ''">${params.dataScope}</if>
+        </where>
+        order by t.id desc
+    </select>
+
+    <insert id="insertErpPurchaseOrder" parameterType="ErpPurchaseOrder" useGeneratedKeys="true" keyProperty="id">
+        insert into erp_purchase_order (order_no, request_id, supplier_id, contract_id, order_date, expected_date, total_amount, order_status, approval_comment, dept_id, create_by, create_time, remark) values (#{orderNo}, #{requestId}, #{supplierId}, #{contractId}, #{orderDate}, #{expectedDate}, #{totalAmount}, #{orderStatus}, #{approvalComment}, #{deptId}, #{createBy}, sysdate(), #{remark})
+    </insert>
+
+    <update id="updateErpPurchaseOrder" parameterType="ErpPurchaseOrder">
+        update erp_purchase_order
+        <set>
+            <if test="orderNo != null and orderNo != ''">order_no = #{orderNo},</if>
+            <if test="requestId != null">request_id = #{requestId},</if>
+            <if test="supplierId != null">supplier_id = #{supplierId},</if>
+            <if test="contractId != null">contract_id = #{contractId},</if>
+            <if test="orderDate != null">order_date = #{orderDate},</if>
+            <if test="expectedDate != null">expected_date = #{expectedDate},</if>
+            <if test="totalAmount != null">total_amount = #{totalAmount},</if>
+            <if test="orderStatus != null and orderStatus != ''">order_status = #{orderStatus},</if>
+            <if test="approvalComment != null and approvalComment != ''">approval_comment = #{approvalComment},</if>
+            <if test="deptId != null">dept_id = #{deptId},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate(),
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from erp_purchase_order where id = #{id}
+    </delete>
+
+    <delete id="deleteByIds" parameterType="Long">
+        delete from erp_purchase_order where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+</mapper>

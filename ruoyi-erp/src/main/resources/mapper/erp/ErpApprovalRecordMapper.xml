@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.erp.mapper.ErpApprovalRecordMapper">
+
+    <sql id="selectErpApprovalRecordVo">
+        select t.* from erp_approval_record t 
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="ErpApprovalRecord">
+        <include refid="selectErpApprovalRecordVo"/>
+        where t.id = #{id}
+    </select>
+
+    <select id="selectErpApprovalRecordList" parameterType="ErpApprovalRecord" resultType="ErpApprovalRecord">
+        <include refid="selectErpApprovalRecordVo"/>
+        <where>
+            <if test="businessType != null and businessType != ''">and t.business_type = #{businessType}</if>
+            <if test="businessId != null">and t.business_id = #{businessId}</if>
+            <if test="action != null and action != ''">and t.action = #{action}</if>
+            <if test="params.dataScope != null and params.dataScope != ''">${params.dataScope}</if>
+        </where>
+        order by t.id desc
+    </select>
+
+    <insert id="insertErpApprovalRecord" parameterType="ErpApprovalRecord" useGeneratedKeys="true" keyProperty="id">
+        insert into erp_approval_record (business_type, business_id, action, from_status, to_status, opinion, operator_id, operator_name, operate_time, create_by, create_time, remark) values (#{businessType}, #{businessId}, #{action}, #{fromStatus}, #{toStatus}, #{opinion}, #{operatorId}, #{operatorName}, #{operateTime}, #{createBy}, sysdate(), #{remark})
+    </insert>
+
+    <update id="updateErpApprovalRecord" parameterType="ErpApprovalRecord">
+        update erp_approval_record
+        <set>
+            <if test="businessType != null and businessType != ''">business_type = #{businessType},</if>
+            <if test="businessId != null">business_id = #{businessId},</if>
+            <if test="action != null and action != ''">action = #{action},</if>
+            <if test="fromStatus != null and fromStatus != ''">from_status = #{fromStatus},</if>
+            <if test="toStatus != null and toStatus != ''">to_status = #{toStatus},</if>
+            <if test="opinion != null and opinion != ''">opinion = #{opinion},</if>
+            <if test="operatorId != null">operator_id = #{operatorId},</if>
+            <if test="operatorName != null and operatorName != ''">operator_name = #{operatorName},</if>
+            <if test="operateTime != null">operate_time = #{operateTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate(),
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from erp_approval_record where id = #{id}
+    </delete>
+
+    <delete id="deleteByIds" parameterType="Long">
+        delete from erp_approval_record where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+</mapper>

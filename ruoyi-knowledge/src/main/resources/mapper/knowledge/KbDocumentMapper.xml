@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.knowledge.mapper.KbDocumentMapper">
+
+    <sql id="selectKbDocumentVo">
+        select id, space_id, document_name, stable_key, document_version, is_current, file_path, file_size, mime_type, checksum_sha256, rag_document_id, parse_status, chunk_count, token_count, error_message, uploaded_by, ready_time, dept_id, create_by, create_time, update_by, update_time, version from kb_document
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="KbDocument">
+        <include refid="selectKbDocumentVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectList" parameterType="KbDocument" resultType="KbDocument">
+        <include refid="selectKbDocumentVo"/>
+        <where>
+            <if test="spaceId != null"> and space_id = #{spaceId}</if>
+            <if test="documentName != null and documentName != ''"> and document_name = #{documentName}</if>
+            <if test="stableKey != null and stableKey != ''"> and stable_key = #{stableKey}</if>
+            <if test="documentVersion != null"> and document_version = #{documentVersion}</if>
+            <if test="isCurrent != null"> and is_current = #{isCurrent}</if>
+            <if test="filePath != null and filePath != ''"> and file_path = #{filePath}</if>
+            <if test="fileSize != null"> and file_size = #{fileSize}</if>
+            <if test="mimeType != null and mimeType != ''"> and mime_type = #{mimeType}</if>
+            <if test="checksumSha256 != null and checksumSha256 != ''"> and checksum_sha256 = #{checksumSha256}</if>
+            <if test="ragDocumentId != null and ragDocumentId != ''"> and rag_document_id = #{ragDocumentId}</if>
+            <if test="parseStatus != null and parseStatus != ''"> and parse_status = #{parseStatus}</if>
+            <if test="chunkCount != null"> and chunk_count = #{chunkCount}</if>
+            <if test="tokenCount != null"> and token_count = #{tokenCount}</if>
+            <if test="errorMessage != null and errorMessage != ''"> and error_message = #{errorMessage}</if>
+            <if test="uploadedBy != null"> and uploaded_by = #{uploadedBy}</if>
+            <if test="readyTime != null"> and ready_time = #{readyTime}</if>
+            <if test="deptId != null"> and dept_id = #{deptId}</if>
+            <if test="createBy != null and createBy != ''"> and create_by = #{createBy}</if>
+            <if test="updateBy != null and updateBy != ''"> and update_by = #{updateBy}</if>
+            <if test="version != null"> and version = #{version}</if>
+        </where>
+        order by id desc
+    </select>
+
+    <insert id="insert" parameterType="KbDocument" useGeneratedKeys="true" keyProperty="id">
+        insert into kb_document (
+            space_id,
+            document_name,
+            stable_key,
+            document_version,
+            is_current,
+            file_path,
+            file_size,
+            mime_type,
+            checksum_sha256,
+            rag_document_id,
+            parse_status,
+            chunk_count,
+            token_count,
+            error_message,
+            uploaded_by,
+            ready_time,
+            dept_id,
+            create_by,
+            create_time,
+            update_by,
+            update_time,
+            version
+        ) values (
+            #{spaceId},
+            #{documentName},
+            #{stableKey},
+            #{documentVersion},
+            #{isCurrent},
+            #{filePath},
+            #{fileSize},
+            #{mimeType},
+            #{checksumSha256},
+            #{ragDocumentId},
+            #{parseStatus},
+            #{chunkCount},
+            #{tokenCount},
+            #{errorMessage},
+            #{uploadedBy},
+            #{readyTime},
+            #{deptId},
+            #{createBy},
+            #{createTime},
+            #{updateBy},
+            #{updateTime},
+            #{version}
+        )
+    </insert>
+
+    <update id="update" parameterType="KbDocument">
+        update kb_document
+        <set>
+            <if test="spaceId != null">space_id = #{spaceId},</if>
+            <if test="documentName != null and documentName != ''">document_name = #{documentName},</if>
+            <if test="stableKey != null and stableKey != ''">stable_key = #{stableKey},</if>
+            <if test="documentVersion != null">document_version = #{documentVersion},</if>
+            <if test="isCurrent != null">is_current = #{isCurrent},</if>
+            <if test="filePath != null and filePath != ''">file_path = #{filePath},</if>
+            <if test="fileSize != null">file_size = #{fileSize},</if>
+            <if test="mimeType != null and mimeType != ''">mime_type = #{mimeType},</if>
+            <if test="checksumSha256 != null and checksumSha256 != ''">checksum_sha256 = #{checksumSha256},</if>
+            <if test="ragDocumentId != null and ragDocumentId != ''">rag_document_id = #{ragDocumentId},</if>
+            <if test="parseStatus != null and parseStatus != ''">parse_status = #{parseStatus},</if>
+            <if test="chunkCount != null">chunk_count = #{chunkCount},</if>
+            <if test="tokenCount != null">token_count = #{tokenCount},</if>
+            <if test="errorMessage != null and errorMessage != ''">error_message = #{errorMessage},</if>
+            <if test="uploadedBy != null">uploaded_by = #{uploadedBy},</if>
+            <if test="readyTime != null">ready_time = #{readyTime},</if>
+            <if test="deptId != null">dept_id = #{deptId},</if>
+            <if test="createBy != null and createBy != ''">create_by = #{createBy},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="version != null">version = #{version},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from kb_document where id = #{id}
+    </delete>
+
+    <sql id="documentColumns">
+        id, space_id, document_name, stable_key, document_version, is_current, file_path, file_size, mime_type,
+        checksum_sha256, rag_document_id, parse_status, chunk_count, token_count, error_message, uploaded_by,
+        ready_time, dept_id, create_by, create_time, update_by, update_time, version
+    </sql>
+
+    <select id="selectReadableList" resultType="KbDocument">
+        select <include refid="documentColumns"/>
+        from kb_document
+        <where>
+            <if test="query.spaceId != null"> and space_id = #{query.spaceId}</if>
+            <if test="query.documentName != null and query.documentName != ''">
+                and document_name like concat('%', #{query.documentName}, '%')
+            </if>
+            <if test="query.parseStatus != null and query.parseStatus != ''"> and parse_status = #{query.parseStatus}</if>
+            <if test="query.isCurrent != null"> and is_current = #{query.isCurrent}</if>
+            and space_id in
+            <foreach collection="spaceIds" item="spaceId" open="(" separator="," close=")">
+                #{spaceId}
+            </foreach>
+        </where>
+        order by id desc
+    </select>
+
+    <select id="selectByRagDocumentId" resultType="KbDocument">
+        select <include refid="documentColumns"/> from kb_document where rag_document_id = #{ragDocumentId} limit 1
+    </select>
+
+    <select id="selectCurrentByStableKey" resultType="KbDocument">
+        select <include refid="documentColumns"/> from kb_document
+        where space_id = #{spaceId} and stable_key = #{stableKey} and is_current = 1 limit 1
+    </select>
+
+    <select id="selectMaxVersion" resultType="java.lang.Integer">
+        select ifnull(max(document_version), 0) from kb_document where space_id = #{spaceId} and stable_key = #{stableKey}
+    </select>
+
+    <update id="clearCurrentByStableKey">
+        update kb_document set is_current = 0 where space_id = #{spaceId} and stable_key = #{stableKey} and is_current = 1
+    </update>
+
+    <update id="updateCurrentFlag">
+        update kb_document set is_current = #{isCurrent} where id = #{id}
+    </update>
+
+    <update id="markIndexing">
+        update kb_document set parse_status = 'INDEXING', rag_document_id = #{ragDocumentId}, error_message = null,
+            update_time = sysdate() where id = #{id}
+    </update>
+
+    <update id="markReady">
+        update kb_document set parse_status = 'READY', chunk_count = ifnull(#{chunkCount}, 0),
+            token_count = ifnull(#{tokenCount}, 0), ready_time = sysdate(), error_message = null,
+            update_time = sysdate() where id = #{id}
+    </update>
+
+    <update id="markFailed">
+        update kb_document set parse_status = 'FAILED', error_message = #{errorMessage}, update_time = sysdate()
+        where id = #{id}
+    </update>
+
+    <update id="markDisabled">
+        update kb_document set parse_status = 'DISABLED', is_current = 0, update_time = sysdate() where id = #{id}
+    </update>
+
+    <select id="selectByBusiness" resultType="KbDocument">
+        select d.id, d.space_id, d.document_name, d.stable_key, d.document_version, d.is_current, d.file_path,
+               d.file_size, d.mime_type, d.checksum_sha256, d.rag_document_id, d.parse_status, d.chunk_count,
+               d.token_count, d.error_message, d.uploaded_by, d.ready_time, d.dept_id, d.create_by, d.create_time,
+               d.update_by, d.update_time, d.version
+        from kb_document d
+        inner join kb_object_link l on l.document_id = d.id
+        where l.business_type = #{businessType} and l.business_id = #{businessId} and d.is_current = 1
+          and d.space_id in
+        <foreach collection="spaceIds" item="spaceId" open="(" separator="," close=")">
+            #{spaceId}
+        </foreach>
+        order by d.id desc
+    </select>
+
+</mapper>

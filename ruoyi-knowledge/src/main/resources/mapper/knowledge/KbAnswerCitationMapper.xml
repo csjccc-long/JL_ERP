@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.knowledge.mapper.KbAnswerCitationMapper">
+
+    <sql id="selectKbAnswerCitationVo">
+        select id, message_id, source_type, source_id, rag_chunk_id, rag_document_id, page_number, snippet, similarity_score, citation_order from kb_answer_citation
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="KbAnswerCitation">
+        <include refid="selectKbAnswerCitationVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectList" parameterType="KbAnswerCitation" resultType="KbAnswerCitation">
+        <include refid="selectKbAnswerCitationVo"/>
+        <where>
+            <if test="messageId != null"> and message_id = #{messageId}</if>
+            <if test="sourceType != null and sourceType != ''"> and source_type = #{sourceType}</if>
+            <if test="sourceId != null"> and source_id = #{sourceId}</if>
+            <if test="ragChunkId != null and ragChunkId != ''"> and rag_chunk_id = #{ragChunkId}</if>
+            <if test="ragDocumentId != null and ragDocumentId != ''"> and rag_document_id = #{ragDocumentId}</if>
+            <if test="pageNumber != null"> and page_number = #{pageNumber}</if>
+            <if test="snippet != null and snippet != ''"> and snippet = #{snippet}</if>
+            <if test="similarityScore != null"> and similarity_score = #{similarityScore}</if>
+            <if test="citationOrder != null"> and citation_order = #{citationOrder}</if>
+        </where>
+        order by id desc
+    </select>
+
+    <insert id="insert" parameterType="KbAnswerCitation" useGeneratedKeys="true" keyProperty="id">
+        insert into kb_answer_citation (
+            message_id,
+            source_type,
+            source_id,
+            rag_chunk_id,
+            rag_document_id,
+            page_number,
+            snippet,
+            similarity_score,
+            citation_order
+        ) values (
+            #{messageId},
+            #{sourceType},
+            #{sourceId},
+            #{ragChunkId},
+            #{ragDocumentId},
+            #{pageNumber},
+            #{snippet},
+            #{similarityScore},
+            #{citationOrder}
+        )
+    </insert>
+
+    <update id="update" parameterType="KbAnswerCitation">
+        update kb_answer_citation
+        <set>
+            <if test="messageId != null">message_id = #{messageId},</if>
+            <if test="sourceType != null and sourceType != ''">source_type = #{sourceType},</if>
+            <if test="sourceId != null">source_id = #{sourceId},</if>
+            <if test="ragChunkId != null and ragChunkId != ''">rag_chunk_id = #{ragChunkId},</if>
+            <if test="ragDocumentId != null and ragDocumentId != ''">rag_document_id = #{ragDocumentId},</if>
+            <if test="pageNumber != null">page_number = #{pageNumber},</if>
+            <if test="snippet != null and snippet != ''">snippet = #{snippet},</if>
+            <if test="similarityScore != null">similarity_score = #{similarityScore},</if>
+            <if test="citationOrder != null">citation_order = #{citationOrder},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from kb_answer_citation where id = #{id}
+    </delete>
+
+</mapper>

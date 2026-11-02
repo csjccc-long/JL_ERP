@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.knowledge.mapper.KbQueryAuditMapper">
+
+    <sql id="selectKbQueryAuditVo">
+        select id, trace_id, user_id, dept_id, question, context_type, context_id, space_ids_json, document_ids_json, status, model_name, latency_ms, error_message, created_time from kb_query_audit
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="KbQueryAudit">
+        <include refid="selectKbQueryAuditVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectList" parameterType="KbQueryAudit" resultType="KbQueryAudit">
+        <include refid="selectKbQueryAuditVo"/>
+        <where>
+            <if test="traceId != null and traceId != ''"> and trace_id like concat('%', #{traceId}, '%')</if>
+            <if test="userId != null"> and user_id = #{userId}</if>
+            <if test="deptId != null"> and dept_id = #{deptId}</if>
+            <if test="question != null and question != ''"> and question like concat('%', #{question}, '%')</if>
+            <if test="contextType != null and contextType != ''"> and context_type = #{contextType}</if>
+            <if test="contextId != null"> and context_id = #{contextId}</if>
+            <if test="status != null and status != ''"> and status = #{status}</if>
+            <if test="modelName != null and modelName != ''"> and model_name = #{modelName}</if>
+            <if test="params.beginTime != null and params.beginTime != ''"> and created_time &gt;= #{params.beginTime}</if>
+            <if test="params.endTime != null and params.endTime != ''"> and created_time &lt; date_add(#{params.endTime}, interval 1 day)</if>
+        </where>
+        order by id desc
+    </select>
+
+    <insert id="insert" parameterType="KbQueryAudit" useGeneratedKeys="true" keyProperty="id">
+        insert into kb_query_audit (
+            trace_id,
+            user_id,
+            dept_id,
+            question,
+            context_type,
+            context_id,
+            space_ids_json,
+            document_ids_json,
+            status,
+            model_name,
+            latency_ms,
+            error_message,
+            created_time
+        ) values (
+            #{traceId},
+            #{userId},
+            #{deptId},
+            #{question},
+            #{contextType},
+            #{contextId},
+            #{spaceIdsJson},
+            #{documentIdsJson},
+            #{status},
+            #{modelName},
+            #{latencyMs},
+            #{errorMessage},
+            #{createdTime}
+        )
+    </insert>
+
+    <update id="update" parameterType="KbQueryAudit">
+        update kb_query_audit
+        <set>
+            <if test="traceId != null and traceId != ''">trace_id = #{traceId},</if>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="deptId != null">dept_id = #{deptId},</if>
+            <if test="question != null and question != ''">question = #{question},</if>
+            <if test="contextType != null and contextType != ''">context_type = #{contextType},</if>
+            <if test="contextId != null">context_id = #{contextId},</if>
+            <if test="spaceIdsJson != null and spaceIdsJson != ''">space_ids_json = #{spaceIdsJson},</if>
+            <if test="documentIdsJson != null and documentIdsJson != ''">document_ids_json = #{documentIdsJson},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="modelName != null and modelName != ''">model_name = #{modelName},</if>
+            <if test="latencyMs != null">latency_ms = #{latencyMs},</if>
+            <if test="errorMessage != null and errorMessage != ''">error_message = #{errorMessage},</if>
+            <if test="createdTime != null">created_time = #{createdTime},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from kb_query_audit where id = #{id}
+    </delete>
+
+    <select id="selectByTraceId" resultType="KbQueryAudit">
+        select id, trace_id, user_id, dept_id, question, context_type, context_id, space_ids_json, document_ids_json,
+               status, model_name, latency_ms, error_message, created_time
+        from kb_query_audit where trace_id = #{traceId} limit 1
+    </select>
+
+    <select id="selectTopQuestions" resultType="java.util.HashMap">
+        select question, count(1) as total
+        from kb_query_audit
+        where created_time &gt;= date_sub(sysdate(), interval 7 day)
+        group by question
+        order by total desc
+        limit #{limit}
+    </select>
+
+    <select id="selectRecentFailures" resultType="KbQueryAudit">
+        select id, trace_id, user_id, dept_id, question, context_type, context_id, space_ids_json, document_ids_json,
+               status, model_name, latency_ms, error_message, created_time
+        from kb_query_audit
+        where status &lt;&gt; 'SUCCESS'
+        order by id desc
+        limit #{limit}
+    </select>
+
+</mapper>

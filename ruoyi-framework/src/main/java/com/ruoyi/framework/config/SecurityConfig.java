@@ -104,6 +104,8 @@ public class SecurityConfig
                     // 静态资源，可匿名访问
                     .requestMatchers(HttpMethod.GET, "/", "/*.html", "/**.html", "/**.css", "/**.js", "/profile/**").permitAll()
                     .requestMatchers("/swagger-ui.html", "/v3/api-docs/**", "/swagger-ui/**", "/druid/**").permitAll()
+                    // 运维健康检查探针，仅暴露健康状态，不含内部细节
+                    .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                     // 除上面外的所有请求全部需要鉴权认证
                     .anyRequest().authenticated();
             })

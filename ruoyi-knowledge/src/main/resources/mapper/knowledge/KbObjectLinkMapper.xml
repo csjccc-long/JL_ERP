@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.knowledge.mapper.KbObjectLinkMapper">
+
+    <sql id="selectKbObjectLinkVo">
+        select id, document_id, business_type, business_id, relation_type, create_by from kb_object_link
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="KbObjectLink">
+        <include refid="selectKbObjectLinkVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectList" parameterType="KbObjectLink" resultType="KbObjectLink">
+        <include refid="selectKbObjectLinkVo"/>
+        <where>
+            <if test="documentId != null"> and document_id = #{documentId}</if>
+            <if test="businessType != null and businessType != ''"> and business_type = #{businessType}</if>
+            <if test="businessId != null"> and business_id = #{businessId}</if>
+            <if test="relationType != null and relationType != ''"> and relation_type = #{relationType}</if>
+            <if test="createBy != null and createBy != ''"> and create_by = #{createBy}</if>
+        </where>
+        order by id desc
+    </select>
+
+    <insert id="insert" parameterType="KbObjectLink" useGeneratedKeys="true" keyProperty="id">
+        insert into kb_object_link (
+            document_id,
+            business_type,
+            business_id,
+            relation_type,
+            create_by
+        ) values (
+            #{documentId},
+            #{businessType},
+            #{businessId},
+            #{relationType},
+            #{createBy}
+        )
+    </insert>
+
+    <update id="update" parameterType="KbObjectLink">
+        update kb_object_link
+        <set>
+            <if test="documentId != null">document_id = #{documentId},</if>
+            <if test="businessType != null and businessType != ''">business_type = #{businessType},</if>
+            <if test="businessId != null">business_id = #{businessId},</if>
+            <if test="relationType != null and relationType != ''">relation_type = #{relationType},</if>
+            <if test="createBy != null and createBy != ''">create_by = #{createBy},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from kb_object_link where id = #{id}
+    </delete>
+
+    <select id="selectByBusiness" resultType="KbObjectLink">
+        select id, document_id, business_type, business_id, relation_type, create_by, create_time
+        from kb_object_link
+        where business_type = #{businessType} and business_id = #{businessId}
+        order by id
+    </select>
+
+    <select id="selectByDocumentId" resultType="KbObjectLink">
+        select id, document_id, business_type, business_id, relation_type, create_by, create_time
+        from kb_object_link where document_id = #{documentId} order by id
+    </select>
+
+    <delete id="deleteByDocumentId">
+        delete from kb_object_link where document_id = #{documentId}
+    </delete>
+
+</mapper>

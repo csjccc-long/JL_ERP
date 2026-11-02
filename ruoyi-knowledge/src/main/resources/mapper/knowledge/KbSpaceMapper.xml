@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.knowledge.mapper.KbSpaceMapper">
+
+    <sql id="selectKbSpaceVo">
+        select id, space_name, space_type, rag_dataset_id, description, owner_id, space_status, dept_id, create_by, create_time, update_by, update_time, remark, version from kb_space
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="KbSpace">
+        <include refid="selectKbSpaceVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectList" parameterType="KbSpace" resultType="KbSpace">
+        <include refid="selectKbSpaceVo"/>
+        <where>
+            <if test="spaceName != null and spaceName != ''"> and space_name = #{spaceName}</if>
+            <if test="spaceType != null and spaceType != ''"> and space_type = #{spaceType}</if>
+            <if test="ragDatasetId != null and ragDatasetId != ''"> and rag_dataset_id = #{ragDatasetId}</if>
+            <if test="description != null and description != ''"> and description = #{description}</if>
+            <if test="ownerId != null"> and owner_id = #{ownerId}</if>
+            <if test="spaceStatus != null and spaceStatus != ''"> and space_status = #{spaceStatus}</if>
+            <if test="deptId != null"> and dept_id = #{deptId}</if>
+            <if test="createBy != null and createBy != ''"> and create_by = #{createBy}</if>
+            <if test="updateBy != null and updateBy != ''"> and update_by = #{updateBy}</if>
+            <if test="remark != null and remark != ''"> and remark = #{remark}</if>
+            <if test="version != null"> and version = #{version}</if>
+        </where>
+        order by id desc
+    </select>
+
+    <insert id="insert" parameterType="KbSpace" useGeneratedKeys="true" keyProperty="id">
+        insert into kb_space (
+            space_name,
+            space_type,
+            rag_dataset_id,
+            description,
+            owner_id,
+            space_status,
+            dept_id,
+            create_by,
+            create_time,
+            update_by,
+            update_time,
+            remark,
+            version
+        ) values (
+            #{spaceName},
+            #{spaceType},
+            #{ragDatasetId},
+            #{description},
+            #{ownerId},
+            #{spaceStatus},
+            #{deptId},
+            #{createBy},
+            #{createTime},
+            #{updateBy},
+            #{updateTime},
+            #{remark},
+            #{version}
+        )
+    </insert>
+
+    <update id="update" parameterType="KbSpace">
+        update kb_space
+        <set>
+            <if test="spaceName != null and spaceName != ''">space_name = #{spaceName},</if>
+            <if test="spaceType != null and spaceType != ''">space_type = #{spaceType},</if>
+            <if test="ragDatasetId != null and ragDatasetId != ''">rag_dataset_id = #{ragDatasetId},</if>
+            <if test="description != null and description != ''">description = #{description},</if>
+            <if test="ownerId != null">owner_id = #{ownerId},</if>
+            <if test="spaceStatus != null and spaceStatus != ''">space_status = #{spaceStatus},</if>
+            <if test="deptId != null">dept_id = #{deptId},</if>
+            <if test="createBy != null and createBy != ''">create_by = #{createBy},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+            <if test="version != null">version = #{version},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from kb_space where id = #{id}
+    </delete>
+
+    <select id="selectReadableList" resultType="KbSpace">
+        select id, space_name, space_type, rag_dataset_id, description, owner_id, space_status, dept_id,
+               create_by, create_time, update_by, update_time, remark, version
+        from kb_space
+        <where>
+            <if test="query.spaceName != null and query.spaceName != ''"> and space_name like concat('%', #{query.spaceName}, '%')</if>
+            <if test="query.spaceType != null and query.spaceType != ''"> and space_type = #{query.spaceType}</if>
+            <if test="query.spaceStatus != null and query.spaceStatus != ''"> and space_status = #{query.spaceStatus}</if>
+            <if test="query.ownerId != null"> and owner_id = #{query.ownerId}</if>
+            and id in
+            <foreach collection="spaceIds" item="spaceId" open="(" separator="," close=")">
+                #{spaceId}
+            </foreach>
+        </where>
+        order by id desc
+    </select>
+
+</mapper>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.erp.mapper.ErpPurchaseRequestItemMapper">
+
+    <resultMap type="ErpPurchaseRequestItem" id="ErpPurchaseRequestItemResult">
+        <result property="requestId" column="request_id"/>
+        <result property="materialId" column="material_id"/>
+        <result property="materialCode" column="material_code"/>
+        <result property="materialName" column="material_name"/>
+        <result property="specification" column="specification"/>
+        <result property="unit" column="unit"/>
+        <result property="quantity" column="quantity"/>
+        <result property="estimatedPrice" column="estimated_price"/>
+        <result property="estimatedAmount" column="estimated_amount"/>
+    </resultMap>
+
+    <sql id="selectErpPurchaseRequestItemVo">
+        select t.*, m.material_code as material_code, m.material_name as material_name, m.specification as specification, m.unit as unit from erp_purchase_request_item t left join erp_material m on m.id = t.material_id
+    </sql>
+
+    <select id="selectByParentId" parameterType="Long" resultMap="ErpPurchaseRequestItemResult">
+        <include refid="selectErpPurchaseRequestItemVo"/>
+        where t.request_id = #{requestId} order by t.id asc
+    </select>
+
+    <insert id="insertErpPurchaseRequestItem" parameterType="ErpPurchaseRequestItem" useGeneratedKeys="true" keyProperty="id">
+        insert into erp_purchase_request_item (request_id, material_id, quantity, estimated_price, estimated_amount, create_by, create_time) values (#{requestId}, #{materialId}, #{quantity}, #{estimatedPrice}, #{estimatedAmount}, ifnull(#{createBy},''), sysdate())
+    </insert>
+
+    <delete id="deleteByParentId" parameterType="Long">
+        delete from erp_purchase_request_item where request_id = #{requestId}
+    </delete>
+</mapper>

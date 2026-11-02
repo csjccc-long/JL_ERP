@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.erp.mapper.ErpContractMapper">
+
+    <sql id="selectErpContractVo">
+        select t.*, s.supplier_name as supplier_name, u2.nick_name as owner_name from erp_contract t left join erp_supplier s on s.id = t.supplier_id left join sys_user u2 on u2.user_id = t.owner_id
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="ErpContract">
+        <include refid="selectErpContractVo"/>
+        where t.id = #{id}
+    </select>
+
+    <select id="selectErpContractList" parameterType="ErpContract" resultType="ErpContract">
+        <include refid="selectErpContractVo"/>
+        <where>
+            <if test="contractNo != null and contractNo != ''">and t.contract_no like concat('%', #{contractNo}, '%')</if>
+            <if test="contractName != null and contractName != ''">and t.contract_name like concat('%', #{contractName}, '%')</if>
+            <if test="supplierId != null">and t.supplier_id = #{supplierId}</if>
+            <if test="contractStatus != null and contractStatus != ''">and t.contract_status = #{contractStatus}</if>
+            <if test="ownerId != null">and t.owner_id = #{ownerId}</if>
+            <if test="params.dataScope != null and params.dataScope != ''">${params.dataScope}</if>
+        </where>
+        order by t.id desc
+    </select>
+
+    <insert id="insertErpContract" parameterType="ErpContract" useGeneratedKeys="true" keyProperty="id">
+        insert into erp_contract (contract_no, contract_name, supplier_id, start_date, end_date, contract_amount, currency, payment_terms, contract_status, owner_id, signed_date, dept_id, create_by, create_time, remark) values (#{contractNo}, #{contractName}, #{supplierId}, #{startDate}, #{endDate}, #{contractAmount}, #{currency}, #{paymentTerms}, #{contractStatus}, #{ownerId}, #{signedDate}, #{deptId}, #{createBy}, sysdate(), #{remark})
+    </insert>
+
+    <update id="updateErpContract" parameterType="ErpContract">
+        update erp_contract
+        <set>
+            <if test="contractNo != null and contractNo != ''">contract_no = #{contractNo},</if>
+            <if test="contractName != null and contractName != ''">contract_name = #{contractName},</if>
+            <if test="supplierId != null">supplier_id = #{supplierId},</if>
+            <if test="startDate != null">start_date = #{startDate},</if>
+            <if test="endDate != null">end_date = #{endDate},</if>
+            <if test="contractAmount != null">contract_amount = #{contractAmount},</if>
+            <if test="currency != null and currency != ''">currency = #{currency},</if>
+            <if test="paymentTerms != null and paymentTerms != ''">payment_terms = #{paymentTerms},</if>
+            <if test="contractStatus != null and contractStatus != ''">contract_status = #{contractStatus},</if>
+            <if test="ownerId != null">owner_id = #{ownerId},</if>
+            <if test="signedDate != null">signed_date = #{signedDate},</if>
+            <if test="deptId != null">dept_id = #{deptId},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate(),
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from erp_contract where id = #{id}
+    </delete>
+
+    <delete id="deleteByIds" parameterType="Long">
+        delete from erp_contract where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+</mapper>
