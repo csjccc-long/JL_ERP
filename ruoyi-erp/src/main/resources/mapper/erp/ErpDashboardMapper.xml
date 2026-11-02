@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.erp.mapper.ErpDashboardMapper">
+
+    <select id="selectOverview" resultType="java.util.HashMap">
+        select
+            (select count(*) from erp_supplier) as supplierTotal,
+            (select count(*) from erp_supplier where admission_status = 'PENDING') as supplierPending,
+            (select count(*) from erp_contract where contract_status = 'ACTIVE') as contractActive,
+            (select count(*) from erp_contract where contract_status = 'ACTIVE'
+                and end_date is not null and end_date between curdate() and date_add(curdate(), interval 30 day)) as contractExpiring,
+            (select count(*) from erp_purchase_request where request_status = 'PENDING_APPROVAL') as requestPending,
+            (select count(*) from erp_purchase_order where order_status = 'PENDING_APPROVAL') as orderPending,
+            (select count(*) from erp_purchase_order where order_status = 'APPROVED'
+                and expected_date is not null and expected_date &lt; curdate()) as orderOverdue,
+            (select count(*) from erp_purchase_order where order_status = 'PARTIALLY_RECEIVED') as orderPartial,
+            (select ifnull(sum(inventory_amount), 0) from erp_inventory_balance) as inventoryAmount,
+            (select count(*) from erp_inventory_balance where available_quantity &lt; #{threshold}) as lowStockCount,
+            (select ifnull(sum(ri.qualified_quantity * ri.unit_cost), 0)
+                from erp_receipt_item ri inner join erp_receipt r on r.id = ri.receipt_id
+                where r.receipt_status = 'CONFIRMED'
+                and date_format(r.receipt_date, '%Y-%m') = date_format(curdate(), '%Y-%m')) as monthlyReceiptAmount,
+            (select count(*) from erp_receipt where receipt_status = 'CONFIRMED') as receiptTotal
+    </select>
+
+    <select id="selectPendingTasks" resultType="java.util.HashMap">
+        select 'PURCHASE_REQUEST' as businessType, r.id as businessId, r.request_no as businessNo,
+               r.title as title, r.request_status as status, r.create_by as createBy, r.create_time as createTime
+        from erp_purchase_request r where r.request_status = 'PENDING_APPROVAL'
+        union all
+        select 'PURCHASE_ORDER' as businessType, o.id as businessId, o.order_no as businessNo,
+               s.supplier_name as title, o.order_status as status, o.create_by as createBy, o.create_time as createTime
+        from erp_purchase_order o left join erp_supplier s on s.id = o.supplier_id where o.order_status = 'PENDING_APPROVAL'
+        union all
+        select 'CONTRACT' as businessType, c.id as businessId, c.contract_no as businessNo,
+               c.contract_name as title, c.contract_status as status, c.create_by as createBy, c.create_time as createTime
+        from erp_contract c where c.contract_status = 'PENDING_APPROVAL'
+        union all
+        select 'SUPPLIER' as businessType, sp.id as businessId, sp.supplier_code as businessNo,
+               sp.supplier_name as title, sp.admission_status as status, sp.create_by as createBy, sp.create_time as createTime
+        from erp_supplier sp where sp.admission_status = 'PENDING'
+        order by createTime desc
+    </select>
+
+    <select id="selectLowStockList" resultType="java.util.HashMap">
+        select b.id as balanceId, b.warehouse_id as warehouseId, w.warehouse_name as warehouseName,
+               b.material_id as materialId, m.material_code as materialCode, m.material_name as materialName,
+               m.specification as specification, m.unit as unit, b.available_quantity as availableQuantity
+        from erp_inventory_balance b
+        left join erp_warehouse w on w.id = b.warehouse_id
+        left join erp_material m on m.id = b.material_id
+        where b.available_quantity &lt; #{threshold}
+        order by b.available_quantity asc
+        limit 10
+    </select>
+
+    <select id="selectReceiptTrend" resultType="java.util.HashMap">
+        select date_format(r.receipt_date, '%Y-%m-%d') as statDate,
+               count(distinct r.id) as receiptCount,
+               ifnull(sum(ri.qualified_quantity * ri.unit_cost), 0) as amount
+        from erp_receipt r
+        left join erp_receipt_item ri on ri.receipt_id = r.id
+        where r.receipt_status = 'CONFIRMED'
+          and r.receipt_date &gt;= date_sub(curdate(), interval ${days} day)
+        group by date_format(r.receipt_date, '%Y-%m-%d')
+        order by statDate asc
+    </select>
+
+    <select id="selectOrderStatusStat" resultType="java.util.HashMap">
+        select order_status as status, count(*) as total from erp_purchase_order group by order_status
+    </select>
+
+</mapper>

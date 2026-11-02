@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.erp.mapper.ErpInventoryLedgerMapper">
+
+    <sql id="selectErpInventoryLedgerVo">
+        select t.*, w.warehouse_name as warehouse_name, m.material_code as material_code, m.material_name as material_name from erp_inventory_ledger t left join erp_warehouse w on w.id = t.warehouse_id left join erp_material m on m.id = t.material_id
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="ErpInventoryLedger">
+        <include refid="selectErpInventoryLedgerVo"/>
+        where t.id = #{id}
+    </select>
+
+    <select id="selectErpInventoryLedgerList" parameterType="ErpInventoryLedger" resultType="ErpInventoryLedger">
+        <include refid="selectErpInventoryLedgerVo"/>
+        <where>
+            <if test="warehouseId != null">and t.warehouse_id = #{warehouseId}</if>
+            <if test="materialId != null">and t.material_id = #{materialId}</if>
+            <if test="businessType != null and businessType != ''">and t.business_type = #{businessType}</if>
+            <if test="sourceType != null and sourceType != ''">and t.source_type = #{sourceType}</if>
+            <if test="sourceId != null">and t.source_id = #{sourceId}</if>
+            <if test="params.dataScope != null and params.dataScope != ''">${params.dataScope}</if>
+        </where>
+        order by t.id desc
+    </select>
+
+    <insert id="insertErpInventoryLedger" parameterType="ErpInventoryLedger" useGeneratedKeys="true" keyProperty="id">
+        insert into erp_inventory_ledger (warehouse_id, material_id, business_type, source_type, source_id, source_item_id, change_quantity, unit_cost, balance_quantity, occurred_time, create_by, create_time, remark) values (#{warehouseId}, #{materialId}, #{businessType}, #{sourceType}, #{sourceId}, #{sourceItemId}, #{changeQuantity}, #{unitCost}, #{balanceQuantity}, #{occurredTime}, #{createBy}, sysdate(), #{remark})
+    </insert>
+
+    <update id="updateErpInventoryLedger" parameterType="ErpInventoryLedger">
+        update erp_inventory_ledger
+        <set>
+            <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
+            <if test="materialId != null">material_id = #{materialId},</if>
+            <if test="businessType != null and businessType != ''">business_type = #{businessType},</if>
+            <if test="sourceType != null and sourceType != ''">source_type = #{sourceType},</if>
+            <if test="sourceId != null">source_id = #{sourceId},</if>
+            <if test="sourceItemId != null">source_item_id = #{sourceItemId},</if>
+            <if test="changeQuantity != null">change_quantity = #{changeQuantity},</if>
+            <if test="unitCost != null">unit_cost = #{unitCost},</if>
+            <if test="balanceQuantity != null">balance_quantity = #{balanceQuantity},</if>
+            <if test="occurredTime != null">occurred_time = #{occurredTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate(),
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from erp_inventory_ledger where id = #{id}
+    </delete>
+
+    <delete id="deleteByIds" parameterType="Long">
+        delete from erp_inventory_ledger where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+</mapper>

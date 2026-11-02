@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.erp.mapper.ErpInventoryBalanceMapper">
+
+    <sql id="selectErpInventoryBalanceVo">
+        select t.*, w.warehouse_name as warehouse_name, m.material_code as material_code, m.material_name as material_name, m.specification as specification, m.unit as unit from erp_inventory_balance t left join erp_warehouse w on w.id = t.warehouse_id left join erp_material m on m.id = t.material_id
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="ErpInventoryBalance">
+        <include refid="selectErpInventoryBalanceVo"/>
+        where t.id = #{id}
+    </select>
+
+    <select id="selectErpInventoryBalanceList" parameterType="ErpInventoryBalance" resultType="ErpInventoryBalance">
+        <include refid="selectErpInventoryBalanceVo"/>
+        <where>
+            <if test="warehouseId != null">and t.warehouse_id = #{warehouseId}</if>
+            <if test="materialId != null">and t.material_id = #{materialId}</if>
+            <if test="params.dataScope != null and params.dataScope != ''">${params.dataScope}</if>
+        </where>
+        order by t.id desc
+    </select>
+
+    <insert id="insertErpInventoryBalance" parameterType="ErpInventoryBalance" useGeneratedKeys="true" keyProperty="id">
+        insert into erp_inventory_balance (warehouse_id, material_id, available_quantity, average_cost, inventory_amount, last_business_time, create_by, create_time, remark) values (#{warehouseId}, #{materialId}, #{availableQuantity}, #{averageCost}, #{inventoryAmount}, #{lastBusinessTime}, #{createBy}, sysdate(), #{remark})
+    </insert>
+
+    <update id="updateErpInventoryBalance" parameterType="ErpInventoryBalance">
+        update erp_inventory_balance
+        <set>
+            <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
+            <if test="materialId != null">material_id = #{materialId},</if>
+            <if test="availableQuantity != null">available_quantity = #{availableQuantity},</if>
+            <if test="averageCost != null">average_cost = #{averageCost},</if>
+            <if test="inventoryAmount != null">inventory_amount = #{inventoryAmount},</if>
+            <if test="lastBusinessTime != null">last_business_time = #{lastBusinessTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate(),
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from erp_inventory_balance where id = #{id}
+    </delete>
+
+    <delete id="deleteByIds" parameterType="Long">
+        delete from erp_inventory_balance where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+</mapper>

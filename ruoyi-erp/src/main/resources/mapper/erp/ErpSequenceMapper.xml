@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.erp.mapper.ErpSequenceMapper">
+
+    <select id="selectMaxNo" resultType="java.lang.String">
+        select max(t.${column}) from ${table} t where t.${column} like concat(#{prefix}, '%')
+    </select>
+
+</mapper>

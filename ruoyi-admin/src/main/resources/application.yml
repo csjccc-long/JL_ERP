@@ -57,9 +57,9 @@ spring:
   servlet:
     multipart:
       # 单个文件大小
-      max-file-size: 10MB
+      max-file-size: 52MB
       # 设置总上传的文件大小
-      max-request-size: 20MB
+      max-request-size: 60MB
   jackson:
     time-zone: GMT+8
     date-format: yyyy-MM-dd HH:mm:ss
@@ -72,13 +72,13 @@ spring:
     # redis 配置
     redis:
       # 地址
-      host: localhost
+      host: ${ERP_REDIS_HOST:localhost}
       # 端口，默认为6379
-      port: 6379
+      port: ${ERP_REDIS_PORT:6379}
       # 数据库索引
-      database: 0
+      database: ${ERP_REDIS_DATABASE:0}
       # 密码
-      password:
+      password: ${ERP_REDIS_PASSWORD:}
       # 连接超时时间
       timeout: 10s
       lettuce:
@@ -97,9 +97,24 @@ token:
   # 令牌自定义标识
   header: Authorization
   # 令牌密钥
-  secret: abcdefghijklmnopqrstuvwxyz
+  secret: ${ERP_JWT_SECRET:abcdefghijklmnopqrstuvwxyz}
   # 令牌有效期（默认30分钟）
   expireTime: 30
+
+# 健康检查（ERP 基础服务探针，不触发模型生成，不泄露内部细节）
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  health:
+    redis:
+      enabled: true
 
 # MyBatis配置
 mybatis:
@@ -144,4 +159,44 @@ xss:
   # 排除链接（多个用逗号分隔）
   excludes: /system/notice
   # 匹配链接
-  urlPatterns: /system/*,/monitor/*,/tool/*
+  urlPatterns: /system/*,/monitor/*,/tool/*,/erp/*
+# 金流智能 ERP 业务配置
+erp:
+  # 知识库文档与业务附件根目录
+  upload-path: ${ERP_UPLOAD_PATH:D:/ruoyi/uploadPath/erp}
+  # 单文件上限（字节），默认 50MB
+  max-file-size: 52428800
+  # 允许上传的扩展名
+  allowed-extensions: pdf,doc,docx,xls,xlsx,txt,png,jpg,jpeg
+  # 单号前缀
+  supplier-prefix: SUP
+  contract-prefix: CT
+  request-prefix: PR
+  order-prefix: PO
+  receipt-prefix: RC
+  # 低库存阈值
+  low-stock-threshold: 10
+
+# RAGFlow 知识引擎配置（Key 只在服务端保存，不下发浏览器）
+ragflow:
+  # 服务地址
+  base-url: ${RAGFLOW_BASE_URL:http://127.0.0.1:9380}
+  # 租户 API Key
+  api-key: ${RAGFLOW_API_KEY:}
+  # 固定 ERP 助手 Chat ID，为空时按 chat-name 自动查找或创建
+  chat-id: ${RAGFLOW_CHAT_ID:}
+  chat-name: ERP Enterprise Assistant
+  # 连接与读取超时（秒）
+  connect-timeout-seconds: 5
+  read-timeout-seconds: ${RAGFLOW_TIMEOUT_SECONDS:90}
+  # 失败重试次数与轮询间隔
+  retry-max: ${RAGFLOW_RETRY_MAX:3}
+  poll-interval-ms: 15000
+  # 检索参数
+  similarity-threshold: 0.2
+  vector-similarity-weight: 0.3
+  page-size: 10
+  # 携带的最近对话轮数
+  history-rounds: 10
+  # 生成模型名称（仅用于审计记录）
+  model-name: ${CHAT_MODEL:}

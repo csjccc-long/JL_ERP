@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.erp.mapper.ErpWarehouseMapper">
+
+    <sql id="selectErpWarehouseVo">
+        select t.* from erp_warehouse t 
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="ErpWarehouse">
+        <include refid="selectErpWarehouseVo"/>
+        where t.id = #{id}
+    </select>
+
+    <select id="selectErpWarehouseList" parameterType="ErpWarehouse" resultType="ErpWarehouse">
+        <include refid="selectErpWarehouseVo"/>
+        <where>
+            <if test="warehouseCode != null and warehouseCode != ''">and t.warehouse_code like concat('%', #{warehouseCode}, '%')</if>
+            <if test="warehouseName != null and warehouseName != ''">and t.warehouse_name like concat('%', #{warehouseName}, '%')</if>
+            <if test="status != null and status != ''">and t.status = #{status}</if>
+            <if test="params.dataScope != null and params.dataScope != ''">${params.dataScope}</if>
+        </where>
+        order by t.id desc
+    </select>
+
+    <insert id="insertErpWarehouse" parameterType="ErpWarehouse" useGeneratedKeys="true" keyProperty="id">
+        insert into erp_warehouse (warehouse_code, warehouse_name, manager_id, status, create_by, create_time, remark) values (#{warehouseCode}, #{warehouseName}, #{managerId}, #{status}, #{createBy}, sysdate(), #{remark})
+    </insert>
+
+    <update id="updateErpWarehouse" parameterType="ErpWarehouse">
+        update erp_warehouse
+        <set>
+            <if test="warehouseCode != null and warehouseCode != ''">warehouse_code = #{warehouseCode},</if>
+            <if test="warehouseName != null and warehouseName != ''">warehouse_name = #{warehouseName},</if>
+            <if test="managerId != null">manager_id = #{managerId},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate(),
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from erp_warehouse where id = #{id}
+    </delete>
+
+    <delete id="deleteByIds" parameterType="Long">
+        delete from erp_warehouse where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+</mapper>

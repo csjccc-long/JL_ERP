@@ -41,4 +41,16 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter
         }
         chain.doFilter(request, response);
     }
+
+    /**
+     * 异步派发（SseEmitter / DeferredResult 完成时的 ASYNC dispatch）需要重新执行本过滤器：
+     * 默认实现会跳过 ASYNC 派发，导致异步阶段 SecurityContext 为空，
+     * 控制器上的 @PreAuthorize 被判定为匿名访问并抛 AuthorizationDeniedException，
+     * 此时响应已提交，SSE 流会因缺少结束块而被客户端判定为异常中断。
+     */
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch()
+    {
+        return false;
+    }
 }

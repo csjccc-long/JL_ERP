@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.knowledge.mapper.KbSpaceAclMapper">
+
+    <sql id="selectKbSpaceAclVo">
+        select id, space_id, subject_type, subject_id, permission_level, create_by from kb_space_acl
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="KbSpaceAcl">
+        <include refid="selectKbSpaceAclVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectList" parameterType="KbSpaceAcl" resultType="KbSpaceAcl">
+        <include refid="selectKbSpaceAclVo"/>
+        <where>
+            <if test="spaceId != null"> and space_id = #{spaceId}</if>
+            <if test="subjectType != null and subjectType != ''"> and subject_type = #{subjectType}</if>
+            <if test="subjectId != null"> and subject_id = #{subjectId}</if>
+            <if test="permissionLevel != null and permissionLevel != ''"> and permission_level = #{permissionLevel}</if>
+            <if test="createBy != null and createBy != ''"> and create_by = #{createBy}</if>
+        </where>
+        order by id desc
+    </select>
+
+    <insert id="insert" parameterType="KbSpaceAcl" useGeneratedKeys="true" keyProperty="id">
+        insert into kb_space_acl (
+            space_id,
+            subject_type,
+            subject_id,
+            permission_level,
+            create_by
+        ) values (
+            #{spaceId},
+            #{subjectType},
+            #{subjectId},
+            #{permissionLevel},
+            #{createBy}
+        )
+    </insert>
+
+    <update id="update" parameterType="KbSpaceAcl">
+        update kb_space_acl
+        <set>
+            <if test="spaceId != null">space_id = #{spaceId},</if>
+            <if test="subjectType != null and subjectType != ''">subject_type = #{subjectType},</if>
+            <if test="subjectId != null">subject_id = #{subjectId},</if>
+            <if test="permissionLevel != null and permissionLevel != ''">permission_level = #{permissionLevel},</if>
+            <if test="createBy != null and createBy != ''">create_by = #{createBy},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from kb_space_acl where id = #{id}
+    </delete>
+
+</mapper>

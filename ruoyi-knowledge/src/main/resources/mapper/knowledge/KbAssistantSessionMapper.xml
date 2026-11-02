@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.knowledge.mapper.KbAssistantSessionMapper">
+
+    <sql id="selectKbAssistantSessionVo">
+        select id, user_id, title, context_type, context_id, session_status, create_by, create_time, update_by, update_time from kb_assistant_session
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="KbAssistantSession">
+        <include refid="selectKbAssistantSessionVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectList" parameterType="KbAssistantSession" resultType="KbAssistantSession">
+        <include refid="selectKbAssistantSessionVo"/>
+        <where>
+            <if test="userId != null"> and user_id = #{userId}</if>
+            <if test="title != null and title != ''"> and title = #{title}</if>
+            <if test="contextType != null and contextType != ''"> and context_type = #{contextType}</if>
+            <if test="contextId != null"> and context_id = #{contextId}</if>
+            <if test="sessionStatus != null and sessionStatus != ''"> and session_status = #{sessionStatus}</if>
+            <if test="createBy != null and createBy != ''"> and create_by = #{createBy}</if>
+            <if test="updateBy != null and updateBy != ''"> and update_by = #{updateBy}</if>
+        </where>
+        order by id desc
+    </select>
+
+    <insert id="insert" parameterType="KbAssistantSession" useGeneratedKeys="true" keyProperty="id">
+        insert into kb_assistant_session (
+            user_id,
+            title,
+            context_type,
+            context_id,
+            session_status,
+            create_by,
+            create_time,
+            update_by,
+            update_time
+        ) values (
+            #{userId},
+            #{title},
+            #{contextType},
+            #{contextId},
+            #{sessionStatus},
+            #{createBy},
+            #{createTime},
+            #{updateBy},
+            #{updateTime}
+        )
+    </insert>
+
+    <update id="update" parameterType="KbAssistantSession">
+        update kb_assistant_session
+        <set>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="title != null and title != ''">title = #{title},</if>
+            <if test="contextType != null and contextType != ''">context_type = #{contextType},</if>
+            <if test="contextId != null">context_id = #{contextId},</if>
+            <if test="sessionStatus != null and sessionStatus != ''">session_status = #{sessionStatus},</if>
+            <if test="createBy != null and createBy != ''">create_by = #{createBy},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from kb_assistant_session where id = #{id}
+    </delete>
+
+</mapper>

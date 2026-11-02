@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.knowledge.mapper.KbIndexJobMapper">
+
+    <sql id="selectKbIndexJobVo">
+        select id, document_id, job_status, attempt_count, next_retry_time, started_time, finished_time, error_message from kb_index_job
+    </sql>
+
+    <select id="selectById" parameterType="Long" resultType="KbIndexJob">
+        <include refid="selectKbIndexJobVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectList" parameterType="KbIndexJob" resultType="KbIndexJob">
+        <include refid="selectKbIndexJobVo"/>
+        <where>
+            <if test="documentId != null"> and document_id = #{documentId}</if>
+            <if test="jobStatus != null and jobStatus != ''"> and job_status = #{jobStatus}</if>
+            <if test="attemptCount != null"> and attempt_count = #{attemptCount}</if>
+            <if test="nextRetryTime != null"> and next_retry_time = #{nextRetryTime}</if>
+            <if test="startedTime != null"> and started_time = #{startedTime}</if>
+            <if test="finishedTime != null"> and finished_time = #{finishedTime}</if>
+            <if test="errorMessage != null and errorMessage != ''"> and error_message = #{errorMessage}</if>
+        </where>
+        order by id desc
+    </select>
+
+    <insert id="insert" parameterType="KbIndexJob" useGeneratedKeys="true" keyProperty="id">
+        insert into kb_index_job (
+            document_id,
+            job_status,
+            attempt_count,
+            next_retry_time,
+            started_time,
+            finished_time,
+            error_message
+        ) values (
+            #{documentId},
+            #{jobStatus},
+            #{attemptCount},
+            #{nextRetryTime},
+            #{startedTime},
+            #{finishedTime},
+            #{errorMessage}
+        )
+    </insert>
+
+    <update id="update" parameterType="KbIndexJob">
+        update kb_index_job
+        <set>
+            <if test="documentId != null">document_id = #{documentId},</if>
+            <if test="jobStatus != null and jobStatus != ''">job_status = #{jobStatus},</if>
+            <if test="attemptCount != null">attempt_count = #{attemptCount},</if>
+            <if test="nextRetryTime != null">next_retry_time = #{nextRetryTime},</if>
+            <if test="startedTime != null">started_time = #{startedTime},</if>
+            <if test="finishedTime != null">finished_time = #{finishedTime},</if>
+            <if test="errorMessage != null and errorMessage != ''">error_message = #{errorMessage},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from kb_index_job where id = #{id}
+    </delete>
+
+    <select id="selectDueJobs" resultType="KbIndexJob">
+        select id, document_id, job_status, attempt_count, next_retry_time, started_time, finished_time,
+               error_message, create_time, update_time
+        from kb_index_job
+        where job_status in ('PENDING', 'RUNNING')
+          and attempt_count &lt; 3
+          and (next_retry_time is null or next_retry_time &lt;= sysdate())
+        order by id
+        limit #{limit}
+    </select>
+
+</mapper>

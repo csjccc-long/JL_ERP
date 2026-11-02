@@ -170,6 +170,20 @@
                 <version>${ruoyi.version}</version>
             </dependency>
 
+            <!-- ERP业务模块-->
+            <dependency>
+                <groupId>com.ruoyi</groupId>
+                <artifactId>ruoyi-erp</artifactId>
+                <version>${ruoyi.version}</version>
+            </dependency>
+
+            <!-- 知识与智能助手模块-->
+            <dependency>
+                <groupId>com.ruoyi</groupId>
+                <artifactId>ruoyi-knowledge</artifactId>
+                <version>${ruoyi.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -180,6 +194,8 @@
         <module>ruoyi-quartz</module>
         <module>ruoyi-generator</module>
         <module>ruoyi-common</module>
+        <module>ruoyi-erp</module>
+        <module>ruoyi-knowledge</module>
     </modules>
     <packaging>pom</packaging>
 
