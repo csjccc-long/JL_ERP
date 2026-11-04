@@ -1,79 +1,161 @@
 <template>
-  <div class="badge-block">
-    <div ref="cardRef" class="badge" :class="{ 'is-flipped': flipped }" :style="styleVars" @transitionend="onTransitionEnd">
-      <section ref="frontRef" class="badge__face badge__face--front">
-        <canvas ref="washRef" class="badge__wash" width="720" height="458" aria-hidden="true" />
-        <span class="badge__holo" aria-hidden="true" />
-        <span class="badge__grain" aria-hidden="true" />
-        <span class="badge__frost" aria-hidden="true" />
-        <span class="badge__scrim" aria-hidden="true" />
-        <span class="badge__slot" aria-hidden="true" />
-        <span class="badge__focus" :class="{ 'is-visible': frontFrame.visible }" :style="frontFrameStyle" aria-hidden="true" />
+  <div
+    ref="blockRef"
+    class="badge-block"
+    :class="{ 'is-flipping': flipping, 'is-interactive': interactive, 'is-dragging': dragging }"
+    @pointerdown="onPointerDown"
+    @pointermove="onPointerMove"
+    @pointerup="onPointerUp"
+    @pointercancel="onPointerUp"
+    @pointerleave="onPointerLeave"
+  >
+    <span class="badge__contact" aria-hidden="true" />
+    <span class="badge__shadow" aria-hidden="true" />
+    <div class="badge__tilt" :class="{ 'is-tilting': sheen.on }" :style="tiltStyle">
+      <div
+        ref="cardRef"
+        class="badge"
+        :class="{ 'is-flipped': flipped }"
+        :style="styleVars"
+        @transitionend="onTransitionEnd"
+      >
+        <span
+          v-for="z in edgeLayers"
+          :key="z"
+          class="badge__edge"
+          :style="{ transform: 'translateZ(' + z + 'px)', filter: 'brightness(' + (0.56 + ((z + 5.5) / 11) * 0.44).toFixed(3) + ')' }"
+          aria-hidden="true"
+        />
 
-        <div class="badge__body">
-          <header class="badge__head">
-            <span class="badge__logo" aria-hidden="true">
-              <i class="badge__logo-base" />
-            </span>
-            <span class="badge__kind">员工工卡</span>
-          </header>
+        <section ref="frontRef" class="badge__face badge__face--front">
+          <canvas ref="washRef" class="badge__wash" width="720" height="454" aria-hidden="true" />
+          <span class="badge__holo" aria-hidden="true" />
+          <span class="badge__grain" aria-hidden="true" />
+          <span class="badge__frost" aria-hidden="true" />
+          <span class="badge__scrim" aria-hidden="true" />
+          <button
+            v-if="interactive || sheetOpen"
+            type="button"
+            class="badge__slot badge__slot--toggle"
+            :class="{ 'is-open': sheetOpen }"
+            :aria-expanded="sheetOpen ? 'true' : 'false'"
+            :aria-label="sheetOpen ? '收起输入面板' : '展开输入面板'"
+            @pointerdown.stop
+            @click.stop="emit('toggle-sheet')"
+          >
+            <span class="badge__slot-bar" aria-hidden="true" />
+            <svg class="badge__slot-arrow" :class="{ 'is-up': sheetOpen }" viewBox="0 0 10 6" aria-hidden="true">
+              <path
+                d="M1 1.2 5 5.2 9 1.2"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <span
+            class="badge__focus"
+            :class="{ 'is-visible': frontFrame.visible }"
+            :style="frontFrameStyle"
+            aria-hidden="true"
+          />
 
-          <div ref="digitsRef" class="badge__hero">
-            <span class="badge__sr">{{ phoneAria }}</span>
-            <span class="badge__digits" aria-hidden="true">
-              <span
-                v-for="(slot, index) in phoneSlots"
-                :key="index"
-                class="badge__digit"
-                :class="{ 'is-filled': slot.filled, 'is-break': index === 2 || index === 6 }"
-              >
-                <span class="badge__digit-col">
-                  <span class="badge__digit-row badge__digit-ghost">•</span>
-                  <span class="badge__digit-row">{{ slot.char }}</span>
+          <div class="badge__body">
+            <header class="badge__head">
+              <span class="badge__logo" aria-hidden="true">
+                <i class="badge__logo-base" />
+              </span>
+              <span class="badge__kind">员工工卡</span>
+            </header>
+
+            <div ref="digitsRef" class="badge__hero">
+              <span class="badge__sr">{{ phoneAria }}</span>
+              <span class="badge__digits" aria-hidden="true">
+                <span
+                  v-for="(slot, index) in phoneSlots"
+                  :key="index"
+                  class="badge__digit"
+                  :class="{ 'is-filled': slot.filled, 'is-break': index === 2 || index === 6 }"
+                >
+                  <span class="badge__digit-col">
+                    <span class="badge__digit-row badge__digit-ghost" data-char="•">•</span>
+                    <span class="badge__digit-row" :data-char="slot.char">{{ slot.char }}</span>
+                  </span>
                 </span>
               </span>
-            </span>
-          </div>
+            </div>
 
-          <footer class="badge__foot">
-            <div class="badge__person">
-              <div ref="whoRef" class="badge__field badge__field--who">
-                <span class="badge__label">持卡人</span>
-                <span class="badge__name">{{ name || "未填写" }}</span>
+            <footer class="badge__foot">
+              <div class="badge__person">
+                <div ref="whoRef" class="badge__field badge__field--who">
+                  <span class="badge__label">持卡人</span>
+                  <span class="badge__name">{{ name || "未填写" }}</span>
+                </div>
+                <span ref="sexRef" class="badge__sex">{{ sexLabel }}</span>
               </div>
-              <span ref="sexRef" class="badge__sex">{{ sexLabel }}</span>
-            </div>
-            <div ref="mailRef" class="badge__field badge__field--mail">
-              <span class="badge__label">邮箱</span>
-              <span class="badge__mail-value">{{ email || "未填写" }}</span>
-            </div>
-          </footer>
-        </div>
-      </section>
-
-      <section ref="backRef" class="badge__face badge__face--back">
-        <canvas ref="washBackRef" class="badge__wash" width="720" height="458" aria-hidden="true" />
-        <span class="badge__holo" aria-hidden="true" />
-        <span class="badge__grain" aria-hidden="true" />
-        <span class="badge__scrim" aria-hidden="true" />
-        <span class="badge__focus" :class="{ 'is-visible': backFrame.visible }" :style="backFrameStyle" aria-hidden="true" />
-
-        <div class="badge__body badge__body--back">
-          <header class="badge__head">
-            <span class="badge__logo" aria-hidden="true">
-              <i class="badge__logo-base" />
-            </span>
-            <span class="badge__kind">密码</span>
-          </header>
-
-          <div ref="secretRef" class="badge__secret">
-            <span class="badge__label">{{ secretLabel }}</span>
-            <span class="badge__secret-dots" :class="{ 'is-empty': !secretLength }">{{ secretDots }}</span>
+              <div ref="mailRef" class="badge__field badge__field--mail">
+                <span class="badge__label">邮箱</span>
+                <span class="badge__mail-value">{{ email || "未填写" }}</span>
+              </div>
+            </footer>
           </div>
+          <span class="badge__sheen" aria-hidden="true" />
+        </section>
 
-          <p class="badge__hint">密码只在输入框中显示为圆点，不会写在卡片上</p>
-        </div>
-      </section>
+        <section ref="backRef" class="badge__face badge__face--back">
+          <canvas ref="washBackRef" class="badge__wash" width="720" height="454" aria-hidden="true" />
+          <span class="badge__holo" aria-hidden="true" />
+          <span class="badge__grain" aria-hidden="true" />
+          <span class="badge__scrim" aria-hidden="true" />
+          <button
+            v-if="interactive || sheetOpen"
+            type="button"
+            class="badge__slot badge__slot--toggle"
+            :class="{ 'is-open': sheetOpen }"
+            :aria-expanded="sheetOpen ? 'true' : 'false'"
+            :aria-label="sheetOpen ? '收起输入面板' : '展开输入面板'"
+            @pointerdown.stop
+            @click.stop="emit('toggle-sheet')"
+          >
+            <span class="badge__slot-bar" aria-hidden="true" />
+            <svg class="badge__slot-arrow" :class="{ 'is-up': sheetOpen }" viewBox="0 0 10 6" aria-hidden="true">
+              <path
+                d="M1 1.2 5 5.2 9 1.2"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <span
+            class="badge__focus"
+            :class="{ 'is-visible': backFrame.visible }"
+            :style="backFrameStyle"
+            aria-hidden="true"
+          />
+
+          <div class="badge__body badge__body--back">
+            <header class="badge__head">
+              <span class="badge__logo" aria-hidden="true">
+                <i class="badge__logo-base" />
+              </span>
+              <span class="badge__kind">密码</span>
+            </header>
+
+            <div ref="secretRef" class="badge__secret">
+              <span class="badge__label">{{ secretLabel }}</span>
+              <span class="badge__secret-dots" :class="{ 'is-empty': !secretLength }">{{ secretDots }}</span>
+            </div>
+
+            <p class="badge__hint">密码只在输入框中显示为圆点，不会写在卡片上</p>
+          </div>
+          <span class="badge__sheen" aria-hidden="true" />
+        </section>
+      </div>
     </div>
   </div>
 </template>
@@ -96,9 +178,16 @@ const props = defineProps({
   /** 当前正在输入的密码字段名（旧密码 / 新密码 / 确认密码） */
   secretLabel: { type: String, default: "新密码" },
   /** 当前输入的密码位数，用于背面圆点 */
-  secretLength: { type: Number, default: 0 }
+  secretLength: { type: Number, default: 0 },
+  /** 闲置态：卡片可以随意拖动旋转、点击翻看另一面 */
+  interactive: { type: Boolean, default: false },
+  /** 表单面板是否展开，卡片上的按钮据此切换文案与箭头方向 */
+  sheetOpen: { type: Boolean, default: false }
 })
 
+const emit = defineEmits(["toggle-sheet"])
+
+const blockRef = ref(null)
 const washRef = ref(null)
 const washBackRef = ref(null)
 const cardRef = ref(null)
@@ -111,6 +200,150 @@ const mailRef = ref(null)
 const secretRef = ref(null)
 
 const meta = computed(() => paletteOf(props.palette))
+
+/* 卡片按银行卡的真实尺寸做：85.6×53.98mm，比例 1.586，厚 0.76mm ≈ 5px（560px 宽时）。
+   厚度用一叠 translateZ 的圆角薄片堆出来，正反面各贴在自己那一侧。 */
+/* 卡芯切片：11 层已经够撑出 5.5px 的厚度，层数再多只是给 GPU 加活 */
+const EDGE_STEPS = Array.from({ length: 12 }, (_, i) => Number((-5.5 + i).toFixed(1)))
+const edgeLayers = EDGE_STEPS
+
+/** 静止姿态：像握在手里的实物卡，微微侧着、露出一点侧面厚度。 */
+const REST = { x: 10, y: -14 }
+/** 指针悬停的 3D 倾斜：鼠标在哪，卡片哪一角就朝观者抬起。 */
+const tilt = ref({ ...REST })
+const sheen = ref({ x: 26, y: 15, on: false })
+/** 翻面过程：投影跟着卡片一起“收窄再展开”，不是死在地上的一块 */
+const flipping = ref(false)
+/** 闲置态的“手感”：拖出来的姿态独立于指针悬停，松手后不弹回，可以一直转着看 */
+const spin = ref({ x: 0, y: 0 })
+const dragging = ref(false)
+let grab = null
+let flipTimer = 0
+let pointer = null
+let tiltFrame = 0
+
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
+
+/** 卡片最终姿态 = 指针悬停的微倾斜 + 用户自己拖出来的旋转 */
+const pose = computed(() => ({
+  x: tilt.value.x + spin.value.x,
+  y: tilt.value.y + spin.value.y
+}))
+
+const canTilt = () => {
+  if (typeof window === "undefined" || !window.matchMedia) return false
+  return (
+    window.matchMedia("(hover: hover) and (pointer: fine)").matches &&
+    !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  )
+}
+
+const applyTilt = () => {
+  tiltFrame = 0
+  if (!pointer || !blockRef.value) return
+  const rect = blockRef.value.getBoundingClientRect()
+  if (!rect.width || !rect.height) return
+  const nx = Math.max(-1, Math.min(1, ((pointer.x - rect.left) / rect.width) * 2 - 1))
+  const ny = Math.max(-1, Math.min(1, ((pointer.y - rect.top) / rect.height) * 2 - 1))
+  tilt.value = { x: REST.x - ny * 6, y: REST.y + nx * 8 }
+  sheen.value = { x: ((nx + 1) / 2) * 100, y: ((ny + 1) / 2) * 100, on: true }
+}
+
+/** 按住拖动：横向转过头、纵向点头，像在手里翻看一张实体卡 */
+const onPointerDown = event => {
+  if (!props.interactive || event.button !== 0) return
+  grab = {
+    id: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+    baseX: spin.value.x,
+    baseY: spin.value.y,
+    travel: 0
+  }
+  dragging.value = true
+  pointer = null
+  if (blockRef.value && blockRef.value.setPointerCapture) {
+    blockRef.value.setPointerCapture(event.pointerId)
+  }
+}
+
+const trackDrag = event => {
+  const dx = event.clientX - grab.x
+  const dy = event.clientY - grab.y
+  grab.travel = Math.max(grab.travel, Math.abs(dx) + Math.abs(dy))
+  spin.value = {
+    x: clamp(grab.baseX - dy * 0.32, -42, 42),
+    y: grab.baseY + dx * 0.42
+  }
+  sheen.value = {
+    x: clamp(50 + (spin.value.y % 180) * 0.28, 0, 100),
+    y: clamp(50 + (spin.value.x % 90) * 0.55, 0, 100),
+    on: true
+  }
+}
+
+const onPointerUp = event => {
+  if (!grab) return
+  const wasClick = grab.travel < 6
+  if (blockRef.value && blockRef.value.releasePointerCapture && event.pointerId !== undefined) {
+    try {
+      blockRef.value.releasePointerCapture(grab.id)
+    } catch (e) {
+      // 指针已经离开，忽略
+    }
+  }
+  grab = null
+  dragging.value = false
+  sheen.value = { x: 26, y: 15, on: false }
+  /* 没怎么移动就当成一次点击：翻到另一面 */
+  if (wasClick && props.interactive) spin.value = { ...spin.value, y: spin.value.y + 180 }
+  /* 松手后纵向姿态自己回正，横向停在你转到的角度 */
+  else spin.value = { ...spin.value, x: 0 }
+}
+
+const onPointerMove = event => {
+  if (grab) {
+    trackDrag(event)
+    return
+  }
+  if (event.pointerType === "touch" || !canTilt()) return
+  pointer = { x: event.clientX, y: event.clientY }
+  if (!tiltFrame) tiltFrame = window.requestAnimationFrame(applyTilt)
+}
+
+const onPointerLeave = () => {
+  pointer = null
+  if (tiltFrame) {
+    window.cancelAnimationFrame(tiltFrame)
+    tiltFrame = 0
+  }
+  if (grab) return
+  tilt.value = { ...REST }
+  sheen.value = { x: 26, y: 15, on: false }
+}
+
+const tiltStyle = computed(() => ({
+  "--tilt-x": pose.value.x.toFixed(2) + "deg",
+  "--tilt-y": pose.value.y.toFixed(2) + "deg",
+  "--sheen-x": sheen.value.x.toFixed(1) + "%",
+  "--sheen-y": sheen.value.y.toFixed(1) + "%",
+  "--sheen-o": sheen.value.on ? 1 : 0.34,
+  "--holo-angle": (118 + tilt.value.y * 2.2).toFixed(1) + "deg",
+  /* 凸字的受光方向：指针移到哪边，字面的亮面就转到哪边，像有一束光在卡面上扫过 */
+  "--emboss-angle": (180 + (sheen.value.x - 50) * 1.5).toFixed(1) + "deg",
+  /* 高光边跟着光源走：光在左，亮边就压在字的左侧 */
+  "--emboss-rim-shadow":
+    ((sheen.value.x - 50) * 0.05).toFixed(2) +
+    "px " +
+    (((sheen.value.y - 50) * 0.05) - 1).toFixed(2) +
+    "px 0 rgba(255, 255, 255, 0.85)",
+  /* 灯光在左上方：卡片越往右转，影子越往右移，卡片才有“站住”的感觉 */
+  "--shadow-x": clamp(pose.value.y * -0.7, -30, 30).toFixed(2) + "px",
+  "--shadow-y": (10 + pose.value.x * 0.6).toFixed(2) + "px",
+  /* 侧过 90° 时卡面几乎不吃地，影子跟着收窄 */
+  "--shadow-sx": (0.55 + 0.4 * Math.abs(Math.cos((pose.value.y * Math.PI) / 180))).toFixed(3),
+  transform: "rotateX(" + pose.value.x.toFixed(2) + "deg) rotateY(" + pose.value.y.toFixed(2) + "deg)"
+}))
 
 const toRgba = (hex, alpha) => {
   const h = String(hex).replace("#", "")
@@ -215,6 +448,68 @@ const styleVars = computed(() => {
     "--badge-veil": inkLight ? "rgba(0, 0, 0, 0.6)" : "rgba(255, 255, 255, 0.6)",
     "--badge-empty": toRgba(ink, 0.34),
     "--badge-secret": inkLight ? "rgba(255, 255, 255, 0.16)" : "rgba(255, 255, 255, 0.62)",
+    /* 卡芯（侧面）颜色：真实卡片是白色 PVC 芯 + 印刷面，所以侧面始终偏浅，
+       深色卡上才会露出一道浅色塑料边，才看得出厚度 */
+    /* 凸字：卡面上的字像压出来的一层塑料。顶边一条高光，下面用 5 层 1px 的实心
+       暗影叠出侧壁，再拖一层接触影和一层散影，侧壁才不会糊成一条淡边。 */
+    "--emboss": (
+      inkLight
+        ? [
+            "var(--emboss-rim-shadow, 0 -1px 0 rgba(255, 255, 255, 0.85))",
+            "0 1px 0 rgba(0, 0, 0, 0.5)",
+            "0 2px 0 rgba(0, 0, 0, 0.46)",
+            "0 3px 0 rgba(0, 0, 0, 0.4)",
+            "0 4px 0 rgba(0, 0, 0, 0.34)",
+            "0 5px 0 rgba(0, 0, 0, 0.26)",
+            "0 7px 4px rgba(0, 0, 0, 0.28)",
+            "0 11px 12px rgba(0, 0, 0, 0.24)",
+            "0 18px 22px rgba(0, 0, 0, 0.18)"
+          ]
+        : [
+            "0 -1px 0 rgba(255, 255, 255, 0.92)",
+            "0 1px 0 rgba(0, 0, 0, 0.32)",
+            "0 2px 0 rgba(0, 0, 0, 0.28)",
+            "0 3px 0 rgba(0, 0, 0, 0.24)",
+            "0 4px 0 rgba(0, 0, 0, 0.2)",
+            "0 6px 4px rgba(0, 0, 0, 0.24)"
+          ]
+    ).join(", "),
+    "--emboss-soft": (
+      inkLight
+        ? [
+            "0 -1px 0 rgba(255, 255, 255, 0.5)",
+            "0 1px 0 rgba(0, 0, 0, 0.42)",
+            "0 2px 0 rgba(0, 0, 0, 0.28)"
+          ]
+        : [
+            "0 -1px 0 rgba(255, 255, 255, 0.6)",
+            "0 1px 0 rgba(0, 0, 0, 0.2)"
+          ]
+    ).join(", "),
+    /* 小字号（邮箱）：侧壁要薄一半，不然 11px 的字会被自己压出的阴影糊掉 */
+    "--emboss-sm": (
+      inkLight
+        ? [
+            "0 -1px 0 rgba(255, 255, 255, 0.4)",
+            "0 1px 0 rgba(0, 0, 0, 0.42)",
+            "0 2px 0 rgba(0, 0, 0, 0.3)",
+            "0 3px 2px rgba(0, 0, 0, 0.22)"
+          ]
+        : [
+            "0 -1px 0 rgba(255, 255, 255, 0.7)",
+            "0 1px 0 rgba(0, 0, 0, 0.26)",
+            "0 2px 2px rgba(0, 0, 0, 0.2)"
+          ]
+    ).join(", "),
+    "--emboss-face": inkLight
+      ? "linear-gradient(var(--emboss-angle, 180deg), #ffffff 0%, #fdf8f1 22%, #ecdfcc 52%, #c3ad92 78%, #94806a 100%)"
+      : "linear-gradient(var(--emboss-angle, 180deg), #4a4139 0%, #3b332c 58%, #241f1b 100%)",
+    "--emboss-rim": inkLight ? "rgba(255, 255, 255, 0.55)" : "rgba(255, 255, 255, 0.5)",
+    "--badge-edge": hslToHex(
+      artHue.value === null ? hexToHsl(accent).h : artHue.value,
+      0.16,
+      inkLight ? 0.42 : 0.74
+    ),
     ...logoVars.value
   }
 })
@@ -276,13 +571,27 @@ const frameStyle = frame =>
 const frontFrameStyle = computed(() => frameStyle(frontFrame.value))
 const backFrameStyle = computed(() => frameStyle(backFrame.value))
 
+/** 元素在卡面里的排版坐标：卡片是 3D 倾斜的，getBoundingClientRect 是投影后的屏幕坐标，
+    直接拿来定位会让提示框跟着倾斜一起错位，所以沿 offsetParent 累加布局坐标。 */
+const localRectOf = (node, faceEl) => {
+  if (!node || !faceEl) return null
+  let x = 0
+  let y = 0
+  let el = node
+  while (el && el !== faceEl) {
+    x += el.offsetLeft
+    y += el.offsetTop
+    el = el.offsetParent
+  }
+  if (el !== faceEl || !node.offsetWidth || !node.offsetHeight) return null
+  return { left: x, top: y, right: x + node.offsetWidth, bottom: y + node.offsetHeight }
+}
+
 /** 只量内容范围（有 selector 时按子节点取并集），避免把内边距也算进框里 */
-const boundsOf = (el, selector) => {
+const boundsOf = (el, selector, faceEl) => {
   if (!el) return null
   const nodes = selector ? Array.from(el.querySelectorAll(selector)) : []
-  const rects = (nodes.length ? nodes : [el])
-    .map(node => node.getBoundingClientRect())
-    .filter(rect => rect.width > 0 && rect.height > 0)
+  const rects = (nodes.length ? nodes : [el]).map(node => localRectOf(node, faceEl)).filter(Boolean)
   if (!rects.length) return null
   return {
     left: Math.min(...rects.map(rect => rect.left)),
@@ -295,15 +604,16 @@ const boundsOf = (el, selector) => {
 /** 内容范围换算成卡片内的框；limitRight 用来避让右边的性别胶囊 */
 const frameOf = (faceEl, bounds, padX, padY, limitRight) => {
   if (!faceEl || !bounds) return null
-  const face = faceEl.getBoundingClientRect()
-  if (!face.width) return null
-  let left = bounds.left - face.left - padX
-  let right = bounds.right - face.left + padX
-  if (limitRight != null) right = Math.min(right, limitRight - face.left)
+  const faceW = faceEl.offsetWidth
+  const faceH = faceEl.offsetHeight
+  if (!faceW) return null
+  let left = bounds.left - padX
+  let right = bounds.right + padX
+  if (limitRight != null) right = Math.min(right, limitRight)
   left = Math.max(5, left)
-  right = Math.min(face.width - 5, right)
-  const top = Math.max(5, bounds.top - face.top - padY)
-  const bottom = Math.min(face.height - 5, bounds.bottom - face.top + padY)
+  right = Math.min(faceW - 5, right)
+  const top = Math.max(5, bounds.top - padY)
+  const bottom = Math.min(faceH - 5, bounds.bottom + padY)
   if (right - left < 8 || bottom - top < 8) return null
   return { visible: true, left, top, width: right - left, height: bottom - top }
 }
@@ -330,7 +640,7 @@ const measure = () => {
   if (!field) return
   if (field === "secret") {
     if (!props.flipped) return
-    const frame = frameOf(backRef.value, boundsOf(secretRef.value), 9, 8)
+    const frame = frameOf(backRef.value, boundsOf(secretRef.value, null, backRef.value), 9, 8)
     if (frame) backFrame.value = frame
     return
   }
@@ -338,9 +648,9 @@ const measure = () => {
   const config = FIELD_FRAMES[field]
   if (!config) return
   const [el, selector, padX, padY] = config()
-  const chip = sexRef.value ? sexRef.value.getBoundingClientRect() : null
-  const limitRight = field === "holder" && chip && chip.width ? chip.left - 6 : null
-  const frame = frameOf(frontRef.value, boundsOf(el, selector), padX, padY, limitRight)
+  const chip = field === "holder" ? localRectOf(sexRef.value, frontRef.value) : null
+  const limitRight = chip ? chip.left - 6 : null
+  const frame = frameOf(frontRef.value, boundsOf(el, selector, frontRef.value), padX, padY, limitRight)
   if (frame) frontFrame.value = frame
 }
 
@@ -380,6 +690,27 @@ onBeforeUnmount(() => {
   if (observer) observer.disconnect()
 })
 
+watch(
+  () => props.flipped,
+  () => {
+    flipping.value = true
+    window.clearTimeout(flipTimer)
+    flipTimer = window.setTimeout(() => {
+      flipping.value = false
+    }, 820)
+  }
+)
+
+watch(
+  () => props.interactive,
+  value => {
+    /* 表单展开时把卡片交还给翻面动画，先归位 */
+    if (!value) spin.value = { x: 0, y: 0 }
+  }
+)
+
+onBeforeUnmount(() => window.clearTimeout(flipTimer))
+
 const onTransitionEnd = event => {
   if (event.propertyName !== "transform") return
   remeasure()
@@ -388,18 +719,162 @@ const onTransitionEnd = event => {
 
 <style lang="scss" scoped>
 .badge-block {
+  position: relative;
   width: 100%;
   max-width: 560px;
   margin: 0 auto;
-  /* 透视放在外层，翻转时才有真实的景深 */
-  perspective: 1500px;
+  /* 透视放在外层，倾斜和翻转才有真实的景深 */
+  perspective: 1150px;
+  perspective-origin: 50% 48%;
+}
+
+/* 倾斜层：指针在卡片上移动时，卡面像握在手里的塑料卡一样跟着转 */
+.badge__tilt {
+  position: relative;
+  z-index: 1;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform 0.5s cubic-bezier(0.22, 0.7, 0.25, 1);
+  will-change: transform;
+}
+
+/* 指针跟随时用短过渡，既顺滑又不拖手 */
+.badge__tilt.is-tilting {
+  transition: transform 0.12s linear;
+}
+
+/* 闲置态：一张可以抓在手里的卡 */
+.badge-block.is-interactive {
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.badge-block.is-interactive.is-dragging {
+  cursor: grabbing;
+}
+
+/* 拖动时不要过渡，手指到哪卡片到哪 */
+.badge-block.is-dragging .badge__tilt,
+.badge-block.is-dragging .badge__shadow,
+.badge-block.is-dragging .badge__contact {
+  transition: none;
+}
+
+/* 两层影子：远影负责“飘着”的体积，近影是卡片压住桌面的接触阴影。
+   两层都跟着倾斜量挪位置，翻面时一起收窄再铺开，影子就不会是一块死黑。 */
+.badge__shadow {
+  position: absolute;
+  inset: 5% 1% -13%;
+  border-radius: 32px;
+  background: radial-gradient(115% 125% at 50% 34%, rgba(0, 0, 0, 0.86) 0%, rgba(0, 0, 0, 0.52) 56%, rgba(0, 0, 0, 0) 100%);
+  filter: blur(26px);
+  transform: translate3d(var(--shadow-x, 0px), calc(var(--shadow-y, 10px) + 2px), 0) scale(var(--shadow-sx, 0.95));
+  opacity: 0.95;
+  z-index: 0;
+  pointer-events: none;
+  transition:
+    transform 0.5s cubic-bezier(0.22, 0.7, 0.25, 1),
+    opacity 0.5s ease;
+  will-change: transform, opacity;
+}
+
+.badge__contact {
+  position: absolute;
+  inset: 14% 10% -2%;
+  border-radius: 24px;
+  background: rgba(0, 0, 0, 0.62);
+  filter: blur(12px);
+  transform: translate3d(calc(var(--shadow-x, 0px) * 0.45), calc(var(--shadow-y, 10px) * 0.55), 0) scale(0.9);
+  opacity: 0.5;
+  z-index: 0;
+  pointer-events: none;
+  transition:
+    transform 0.5s cubic-bezier(0.22, 0.7, 0.25, 1),
+    opacity 0.5s ease;
+  will-change: transform, opacity;
+}
+
+/* 翻面时卡片立成一条线，两块影子跟着收窄、抬离桌面，落回时再铺开。
+   关键帧时间轴用 linear，落点按卡片 transform 的 cubic-bezier(0.2, 0.75, 0.2, 1)
+   解出来的真实进度排，影子才会跟卡片同进同出；影子只收窄到 0.36 并同时变虚，
+   不会像纸片一样突然拍扁。 */
+.badge-block.is-flipping .badge__shadow {
+  animation: badge-flip-shadow 0.8s linear both;
+}
+
+.badge-block.is-flipping .badge__contact {
+  animation: badge-flip-contact 0.8s linear both;
+}
+
+@keyframes badge-flip-shadow {
+  0% {
+    transform: translate3d(var(--shadow-x, 0px), calc(var(--shadow-y, 10px) + 2px), 0) scale(0.95);
+    opacity: 0.95;
+  }
+  8% {
+    transform: translate3d(calc(var(--shadow-x, 0px) + 3px), calc(var(--shadow-y, 10px) + 3px), 0) scale(0.93, 0.95);
+    opacity: 0.88;
+  }
+  16% {
+    transform: translate3d(calc(var(--shadow-x, 0px) + 6px), calc(var(--shadow-y, 10px) + 4px), 0) scale(0.9, 0.94);
+    opacity: 0.78;
+  }
+  24% {
+    transform: translate3d(calc(var(--shadow-x, 0px) + 4px), calc(var(--shadow-y, 10px) + 3px), 0) scale(0.92, 0.95);
+    opacity: 0.86;
+  }
+  32% {
+    transform: translate3d(calc(var(--shadow-x, 0px) + 2px), calc(var(--shadow-y, 10px) + 2px), 0) scale(0.94, 0.95);
+    opacity: 0.92;
+  }
+  48% {
+    transform: translate3d(calc(var(--shadow-x, 0px) + 1px), calc(var(--shadow-y, 10px) + 2px), 0) scale(0.95);
+    opacity: 0.94;
+  }
+  64%,
+  100% {
+    transform: translate3d(var(--shadow-x, 0px), calc(var(--shadow-y, 10px) + 2px), 0) scale(0.95);
+    opacity: 0.95;
+  }
+}
+
+@keyframes badge-flip-contact {
+  0% {
+    transform: translate3d(calc(var(--shadow-x, 0px) * 0.45), calc(var(--shadow-y, 10px) * 0.55), 0) scale(0.9);
+    opacity: 0.5;
+  }
+  8% {
+    transform: translate3d(calc(var(--shadow-x, 0px) * 0.45 - 2px), calc(var(--shadow-y, 10px) * 0.55 + 3px), 0) scale(0.78, 0.88);
+    opacity: 0.42;
+  }
+  16% {
+    transform: translate3d(calc(var(--shadow-x, 0px) * 0.45 - 4px), calc(var(--shadow-y, 10px) * 0.55 + 5px), 0) scale(0.62, 0.84);
+    opacity: 0.3;
+  }
+  24% {
+    transform: translate3d(calc(var(--shadow-x, 0px) * 0.45 - 3px), calc(var(--shadow-y, 10px) * 0.55 + 3px), 0) scale(0.78, 0.88);
+    opacity: 0.42;
+  }
+  32% {
+    transform: translate3d(calc(var(--shadow-x, 0px) * 0.45 - 1px), calc(var(--shadow-y, 10px) * 0.55 + 1px), 0) scale(0.86, 0.89);
+    opacity: 0.47;
+  }
+  48%,
+  100% {
+    transform: translate3d(calc(var(--shadow-x, 0px) * 0.45), calc(var(--shadow-y, 10px) * 0.55), 0) scale(0.9);
+    opacity: 0.5;
+  }
 }
 
 .badge {
+  --badge-half: 6px;
   position: relative;
   width: 100%;
-  aspect-ratio: 440 / 254;
-  border-radius: 22px;
+  /* 银行卡真实比例 85.6 : 53.98 */
+  aspect-ratio: 856 / 540;
+  border-radius: 21px;
   transform-style: preserve-3d;
   transition: transform 0.8s cubic-bezier(0.2, 0.75, 0.2, 1);
 }
@@ -408,10 +883,20 @@ const onTransitionEnd = event => {
   transform: rotateY(180deg);
 }
 
+/* 卡芯：一叠圆角薄片堆出 5px 厚度，边缘才会像真的塑料卡一样立起来 */
+.badge__edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--badge-edge);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
 .badge__face {
   position: absolute;
   inset: 0;
-  border-radius: 22px;
+  border-radius: inherit;
   overflow: hidden;
   isolation: isolate;
   color: var(--badge-ink);
@@ -419,13 +904,56 @@ const onTransitionEnd = event => {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   box-shadow:
-    0 28px 54px -30px rgba(0, 0, 0, 0.95),
-    0 8px 22px -14px rgba(0, 0, 0, 0.6),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    0 2px 10px -4px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.badge__face--front {
+  transform: translateZ(var(--badge-half));
+}
+
+/* 倒角：四条边各自吃到一点光，侧棱才不会像贴纸 */
+.badge__face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    inset 1px 0 0 rgba(255, 255, 255, 0.1),
+    inset -1px 0 0 rgba(0, 0, 0, 0.28);
 }
 
 .badge__face--back {
-  transform: rotateY(180deg);
+  transform: rotateY(180deg) translateZ(var(--badge-half));
+}
+
+/* 指纹级的镜面反光：跟着指针走，卡面才有“塑料+覆膜”的质感 */
+.badge__sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--sheen-o, 0);
+  mix-blend-mode: soft-light;
+  background:
+    radial-gradient(
+      30% 44% at var(--sheen-x, 34%) var(--sheen-y, 20%),
+      rgba(255, 255, 255, 0.6) 0%,
+      rgba(255, 255, 255, 0.16) 32%,
+      rgba(255, 255, 255, 0) 58%
+    ),
+    linear-gradient(
+      var(--holo-angle, 118deg),
+      rgba(255, 255, 255, 0.34) 0%,
+      rgba(255, 255, 255, 0) 38%,
+      rgba(255, 255, 255, 0) 72%,
+      rgba(255, 255, 255, 0.18) 100%
+    );
+  transition: opacity 0.35s ease;
 }
 
 .badge__wash {
@@ -441,7 +969,7 @@ const onTransitionEnd = event => {
   inset: 0;
   pointer-events: none;
   background: linear-gradient(
-    118deg,
+    var(--holo-angle, 118deg),
     rgba(255, 255, 255, 0.4) 0%,
     rgba(255, 255, 255, 0) 26%,
     rgba(255, 255, 255, 0) 64%,
@@ -483,6 +1011,7 @@ const onTransitionEnd = event => {
     linear-gradient(180deg, var(--badge-scrim-soft) 0%, transparent 34%);
 }
 
+/* 卡顶凹槽：本来是卡片的物理卡槽，现在兼任“展开 / 收起输入面板”的开关 */
 .badge__slot {
   position: absolute;
   top: 9px;
@@ -495,6 +1024,72 @@ const onTransitionEnd = event => {
     inset 0 1px 2px rgba(0, 0, 0, 0.55),
     0 1px 0 rgba(255, 255, 255, 0.26);
   transform: translateX(-50%);
+}
+
+.badge__slot--toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 76px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  box-shadow: none;
+  z-index: 5;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.badge__slot-bar {
+  display: block;
+  width: 52px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--badge-slot);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.55),
+    0 1px 0 rgba(255, 255, 255, 0.26);
+  transition: box-shadow 0.22s ease, background 0.22s ease;
+}
+
+.badge__slot-arrow {
+  width: 10px;
+  height: 7px;
+  margin-top: 3px;
+  color: var(--badge-ink-soft);
+  opacity: 0.72;
+  transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.2, 0.78, 0.2, 1);
+}
+
+.badge__slot-arrow.is-up {
+  transform: rotate(180deg);
+}
+
+.badge__slot--toggle:hover .badge__slot-bar,
+.badge__slot--toggle:focus-visible .badge__slot-bar {
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.32),
+    0 0 0 1.5px rgba(255, 255, 255, 0.42),
+    0 0 12px rgba(255, 255, 255, 0.28);
+}
+
+.badge__slot--toggle:hover .badge__slot-arrow {
+  opacity: 1;
+  color: var(--badge-ink);
+}
+
+.badge__slot--toggle:focus-visible {
+  outline: none;
+}
+
+.badge__slot--toggle.is-open .badge__slot-bar {
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.32),
+    0 0 0 1.5px rgba(255, 255, 255, 0.28);
 }
 
 /* 聚焦提示框：白色细边 + 柔光，跟着当前输入的那个字段走 */
@@ -594,6 +1189,7 @@ const onTransitionEnd = event => {
   font-size: 8.5px;
   font-weight: 600;
   letter-spacing: 0.18em;
+  text-shadow: var(--emboss-soft);
 }
 
 /* 手机号：11 个格子，输入一位就翻上去一位 */
@@ -640,10 +1236,38 @@ const onTransitionEnd = event => {
 }
 
 .badge__digit-row {
+  position: relative;
   display: block;
   height: 1.05em;
   line-height: 1.05em;
   text-align: center;
+  /* 像银行卡那种凸印数字：顶面高光 + 向下拖出的厚度 */
+  text-shadow: var(--emboss);
+}
+
+/* 字面单独一层：竖向渐变的“顶面”，向上错 1px，底下的实心侧壁就露出来了 */
+.badge__digit-row::after {
+  content: attr(data-char);
+  position: absolute;
+  inset: 0;
+  color: transparent;
+  /* 上层是一道跟着指针走的镜面反光，压在渐变字面上，凸字的顶面才会“亮一下” */
+  background-image:
+    radial-gradient(
+      120% 90% at var(--sheen-x, 34%) -10%,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(255, 255, 255, 0.35) 34%,
+      rgba(255, 255, 255, 0) 66%
+    ),
+    var(--emboss-face);
+  -webkit-background-clip: text;
+  background-clip: text;
+  transform: translateY(-1px);
+  pointer-events: none;
+}
+
+.badge__digit-ghost::after {
+  opacity: 0.5;
 }
 
 .badge__digit-row:first-child {
@@ -683,7 +1307,7 @@ const onTransitionEnd = event => {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 5px;
   min-width: 0;
   padding: 3px 5px;
   margin: -3px -5px;
@@ -695,6 +1319,7 @@ const onTransitionEnd = event => {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--badge-ink-faint);
+  text-shadow: var(--emboss-soft);
 }
 
 .badge__name {
@@ -705,7 +1330,7 @@ const onTransitionEnd = event => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 4px var(--badge-veil);
+  text-shadow: var(--emboss);
 }
 
 .badge__sex {
@@ -717,6 +1342,7 @@ const onTransitionEnd = event => {
   font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--badge-ink-soft);
+  text-shadow: var(--emboss-soft);
 }
 
 .badge__field--mail {
@@ -730,7 +1356,7 @@ const onTransitionEnd = event => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 4px var(--badge-veil);
+  text-shadow: var(--emboss-sm);
 }
 
 /* 背面：密码修改时翻过来看这一面 */
@@ -755,7 +1381,7 @@ const onTransitionEnd = event => {
   line-height: 1;
   letter-spacing: 0.3em;
   color: var(--badge-ink);
-  text-shadow: 0 1px 4px var(--badge-veil);
+  text-shadow: var(--emboss);
 }
 
 .badge__secret-dots.is-empty {
@@ -771,11 +1397,12 @@ const onTransitionEnd = event => {
   line-height: 1.5;
   letter-spacing: 0.04em;
   color: var(--badge-ink-faint);
+  text-shadow: var(--emboss-soft);
 }
 
 @media (max-width: 720px) {
   .badge {
-    aspect-ratio: 440 / 276;
+    --badge-half: 2px;
   }
 
   .badge__body {

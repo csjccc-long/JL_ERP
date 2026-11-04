@@ -47,7 +47,7 @@ import { updateUserPwd } from "@/api/system/user"
 const { proxy } = getCurrentInstance()
 const { infoPwdValidator } = usePasswordRule()
 
-const emit = defineEmits(["active-field", "secret"])
+const emit = defineEmits(["active-field", "secret", "close"])
 
 const PWD_LABELS = { oldPassword: "旧密码", newPassword: "新密码", confirmPassword: "确认密码" }
 /** 卡背显示当前正在输入的那个密码框 */
@@ -99,9 +99,9 @@ function submit() {
   })
 }
 
-/** 关闭按钮 */
+/** 关闭按钮：把表单收回卡片下面，不离开页面 */
 function close() {
-  proxy.$tab.closePage()
+  emit("close")
 }
 </script>
 

@@ -17,7 +17,7 @@
       </el-col>
 
       <el-col :span="18" :md="16" :sm="14" :xs="24">
-        <section class="profile-work">
+        <section class="profile-work" :class="{ 'is-open': sheetOpen }">
           <nav class="work-rail" role="tablist" aria-orientation="vertical" aria-label="账号设置">
             <button
               v-for="item in modes"
@@ -25,9 +25,9 @@
               type="button"
               role="tab"
               class="work-switch__btn"
-              :class="{ 'is-active': mode === item.name }"
-              :aria-selected="mode === item.name"
-              @click="selectMode(item.name)"
+              :class="{ 'is-active': mode === item.name && sheetOpen }"
+              :aria-selected="mode === item.name && sheetOpen"
+              @click="toggleMode(item.name)"
             >
               {{ item.label }}
             </button>
@@ -38,26 +38,41 @@
           </nav>
 
           <div class="work-main">
-            <badgeCard
-              :palette="palette"
-              :name="draft.nickName"
-              :phone="draft.phonenumber"
-              :email="draft.email"
-              :sex="draft.sex"
-              :flipped="mode === 'resetPwd'"
-              :active-field="activeField"
-              :secret-label="secretLabel"
-              :secret-length="secretLength"
-            />
+            <div class="stage-card">
+              <badgeCard
+                :palette="palette"
+                :name="draft.nickName"
+                :phone="draft.phonenumber"
+                :email="draft.email"
+                :sex="draft.sex"
+                :flipped="mode === 'resetPwd'"
+                :active-field="activeField"
+                :secret-label="secretLabel"
+                :secret-length="secretLength"
+                :interactive="!sheetOpen"
+                :sheet-open="sheetOpen"
+                @toggle-sheet="toggleSheet"
+              />
+              <transition name="hint">
+                <p v-if="!sheetOpen" class="stage-hint">按住拖动可任意旋转 · 轻点翻面 · 点顶部卡槽展开资料</p>
+              </transition>
+            </div>
 
-            <userInfo
-              v-if="mode === 'userinfo'"
-              v-model:palette="palette"
-              :user="state.user"
-              @active-field="activeField = $event"
-              @draft="draft = $event"
-            />
-            <resetPwd v-else @active-field="activeField = $event" @secret="onSecret" />
+            <div class="stage-sheet" :class="{ 'is-open': sheetOpen }">
+              <div class="sheet-clip">
+                <div class="sheet-body">
+                  <userInfo
+                    v-if="mode === 'userinfo'"
+                    v-model:palette="palette"
+                    :user="state.user"
+                    @active-field="activeField = $event"
+                    @draft="draft = $event"
+                    @close="closeSheet"
+                  />
+                  <resetPwd v-else-if="mode === 'resetPwd'" @active-field="activeField = $event" @secret="onSecret" @close="closeSheet" />
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       </el-col>
@@ -105,7 +120,55 @@ const modes = [
   { name: "userinfo", label: "基本资料" },
   { name: "resetPwd", label: "修改密码" }
 ]
-const mode = ref("userinfo")
+/** 默认不展开任何表单：页面上只有一张可以随手转着看的工卡 */
+const mode = ref(null)
+/** 表单卡片从工卡下面滑出来的状态 */
+const sheetOpen = ref(false)
+let sheetTimer = 0
+
+const openSheet = name => {
+  window.clearTimeout(sheetTimer)
+  if (mode.value !== name) {
+    if (name !== "resetPwd") {
+      secretLabel.value = "新密码"
+      secretLength.value = 0
+    }
+    activeField.value = ""
+    mode.value = name
+  }
+  nextTick(() => {
+    sheetOpen.value = true
+  })
+}
+
+const closeSheet = () => {
+  window.clearTimeout(sheetTimer)
+  sheetOpen.value = false
+  activeField.value = ""
+  /* 等卡片落回、面板收完再把表单卸掉，动画期间内容要一直在 */
+  sheetTimer = window.setTimeout(() => {
+    mode.value = null
+  }, 520)
+}
+
+/** 卡片上的展开/收起：没展开时按当前页签（默认基本资料）拉出表单 */
+const toggleSheet = () => {
+  if (sheetOpen.value) {
+    closeSheet()
+    return
+  }
+  openSheet(mode.value || "userinfo")
+}
+
+const toggleMode = name => {
+  if (mode.value === name && sheetOpen.value) {
+    closeSheet()
+    return
+  }
+  openSheet(name)
+}
+
+onBeforeUnmount(() => window.clearTimeout(sheetTimer))
 
 /** 卡片上弹的提示框跟着哪个字段 */
 const activeField = ref("")
@@ -146,16 +209,6 @@ watch(palette, value => {
   }
 })
 
-const selectMode = name => {
-  if (mode.value === name) return
-  activeField.value = ""
-  if (name !== "resetPwd") {
-    secretLabel.value = "新密码"
-    secretLength.value = 0
-  }
-  mode.value = name
-}
-
 const heroTitle = computed(() => {
   const dept = state.user.dept && state.user.dept.deptName
   return [dept, state.postGroup].filter(Boolean).join(" · ")
@@ -193,7 +246,7 @@ function getUser() {
 
 onMounted(() => {
   const activeTab = route.params && route.params.activeTab
-  if (activeTab === "resetPwd") mode.value = "resetPwd"
+  if (activeTab === "resetPwd") openSheet("resetPwd")
   getUser()
 })
 </script>
@@ -230,6 +283,8 @@ onMounted(() => {
   align-items: flex-start;
   justify-content: center;
   gap: 18px;
+  /* 只有右侧这张卡跟着视口上下居中，左边的人事卡保持贴顶 */
+  min-height: calc(100vh - 152px);
 }
 
 /* 左侧竖排的页签 + 账号状态 */
@@ -282,11 +337,79 @@ onMounted(() => {
 
 .work-main {
   flex: 1;
+  align-self: center;
   min-width: 0;
   max-width: 560px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 0;
+}
+
+/* ---------- 工卡：默认就一张卡立在中间，可以随手转着看 ---------- */
+.stage-card {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  transition: transform 0.62s cubic-bezier(0.2, 0.78, 0.2, 1);
+}
+
+/* 点开表单时卡片整体上浮，让出下面的空间 */
+.profile-work.is-open .stage-card {
+  transform: translateY(-18px);
+}
+
+.stage-hint {
+  margin: 16px 0 0;
+  color: rgba(244, 244, 245, 0.32);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-align: center;
+  pointer-events: none;
+}
+
+.hint-enter-active,
+.hint-leave-active {
+  transition: opacity 0.24s ease;
+}
+
+.hint-enter-from,
+.hint-leave-to {
+  opacity: 0;
+}
+
+/* ---------- 输入卡片：从工卡下面滑出来 ---------- */
+.stage-sheet {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: -20px;
+  transition:
+    grid-template-rows 0.58s cubic-bezier(0.2, 0.78, 0.2, 1),
+    margin-top 0.58s cubic-bezier(0.2, 0.78, 0.2, 1);
+}
+
+.stage-sheet.is-open {
+  grid-template-rows: 1fr;
+  margin-top: 12px;
+}
+
+.sheet-clip {
+  overflow: hidden;
+}
+
+.sheet-body {
+  opacity: 0;
+  transform: translateY(-24px) scaleY(0.97);
+  transform-origin: 50% 0;
+  transition:
+    opacity 0.36s ease,
+    transform 0.58s cubic-bezier(0.2, 0.78, 0.2, 1);
+}
+
+.stage-sheet.is-open .sheet-body {
+  opacity: 1;
+  transform: none;
 }
 
 .work-main > * {

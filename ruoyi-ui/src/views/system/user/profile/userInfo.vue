@@ -57,7 +57,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(["update:palette", "active-field", "draft"])
+const emit = defineEmits(["update:palette", "active-field", "draft", "close"])
 
 const { proxy } = getCurrentInstance()
 
@@ -85,9 +85,9 @@ function submit() {
   })
 }
 
-/** 关闭按钮 */
+/** 关闭按钮：把表单收回卡片下面，不离开页面 */
 function close() {
-  proxy.$tab.closePage()
+  emit("close")
 }
 
 // 回显当前登录用户信息
