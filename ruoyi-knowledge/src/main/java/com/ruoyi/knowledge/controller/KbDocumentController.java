@@ -11,6 +11,7 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -27,6 +28,7 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.knowledge.domain.KbDocument;
 import com.ruoyi.knowledge.domain.KbObjectLink;
 import com.ruoyi.knowledge.service.IKbDocumentService;
@@ -150,25 +152,55 @@ public class KbDocumentController extends BaseController
         String fileName = URLEncoder.encode(document.getDocumentName(), StandardCharsets.UTF_8).replace("+", "%20");
         String disposition = (inline ? "inline" : "attachment") + "; filename=\"" + fileName
                 + "\"; filename*=UTF-8''" + fileName;
+        MediaType mediaType = resolveMediaType(document, path);
+        return ResponseEntity.ok().contentType(mediaType).header(HttpHeaders.CONTENT_DISPOSITION, disposition)
+                .header("X-Content-Type-Options", "nosniff").body(new FileSystemResource(path));
+    }
+
+    /**
+     * 解析文档真实的 Content-Type：库里存的是 octet-stream（浏览器上传时常给这个值）时，
+     * 依次回退到文件探测和文件名扩展名，文本类型统一补 charset，避免浏览器把文件当成二进制或乱码展示。
+     */
+    private MediaType resolveMediaType(KbDocument document, Path path)
+    {
         String contentType = document.getMimeType();
-        if (contentType == null || contentType.isEmpty())
+        if (StringUtils.isEmpty(contentType) || MediaType.APPLICATION_OCTET_STREAM_VALUE.equalsIgnoreCase(contentType))
         {
-            contentType = Files.probeContentType(path);
+            String probed = null;
+            try
+            {
+                probed = Files.probeContentType(path);
+            }
+            catch (IOException ignored)
+            {
+                probed = null;
+            }
+            if (StringUtils.isNotEmpty(probed))
+            {
+                contentType = probed;
+            }
         }
-        MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
-        try
+        MediaType mediaType = null;
+        if (StringUtils.isNotEmpty(contentType) && !MediaType.APPLICATION_OCTET_STREAM_VALUE.equalsIgnoreCase(contentType))
         {
-            if (contentType != null)
+            try
             {
                 mediaType = MediaType.parseMediaType(contentType);
             }
+            catch (RuntimeException ignored)
+            {
+                mediaType = null;
+            }
         }
-        catch (RuntimeException ignored)
+        if (mediaType == null)
         {
-            mediaType = MediaType.APPLICATION_OCTET_STREAM;
+            mediaType = MediaTypeFactory.getMediaType(document.getDocumentName()).orElse(MediaType.APPLICATION_OCTET_STREAM);
         }
-        return ResponseEntity.ok().contentType(mediaType).header(HttpHeaders.CONTENT_DISPOSITION, disposition)
-                .header("X-Content-Type-Options", "nosniff").body(new FileSystemResource(path));
+        if (mediaType.getCharset() == null && "text".equalsIgnoreCase(mediaType.getType()))
+        {
+            return new MediaType(mediaType.getType(), mediaType.getSubtype(), StandardCharsets.UTF_8);
+        }
+        return mediaType;
     }
 
     /**

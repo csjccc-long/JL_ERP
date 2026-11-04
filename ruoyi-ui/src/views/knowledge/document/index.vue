@@ -144,13 +144,16 @@
         </el-table-column>
       </el-table>
     </el-drawer>
+
+    <file-preview v-model="previewOpen" :document-id="previewDocId" :document-name="previewDocName" />
   </div>
 </template>
 
 <script setup name="KbDocument">
 import { useRoute } from "vue-router"
-import { listDocument, uploadDocument, retryDocument, disableDocument, listLinks, addLink, delLink, downloadDocument, previewDocument } from "@/api/knowledge/document"
+import { listDocument, uploadDocument, retryDocument, disableDocument, listLinks, addLink, delLink, downloadDocument } from "@/api/knowledge/document"
 import { spaceOptions } from "@/api/knowledge/space"
+import FilePreview from "@/components/FilePreview"
 
 const { proxy } = getCurrentInstance()
 const route = useRoute()
@@ -164,6 +167,9 @@ const total = ref(0)
 const uploadOpen = ref(false)
 const uploading = ref(false)
 const fileList = ref([])
+const previewOpen = ref(false)
+const previewDocId = ref(undefined)
+const previewDocName = ref("")
 const linkOpen = ref(false)
 const linkLoading = ref(false)
 const linkList = ref([])
@@ -304,13 +310,9 @@ function handleDisable(row) {
   }).catch(() => {})
 }
 
-function openBlob(blob, fileName, inline) {
-  const url = window.URL.createObjectURL(new Blob([blob]))
-  if (inline) {
-    window.open(url, "_blank")
-    setTimeout(() => window.URL.revokeObjectURL(url), 60000)
-    return
-  }
+function openBlob(blob, fileName) {
+  // 重建 Blob 时必须带上原始 MIME，否则浏览器会把文档当纯文本渲染成乱码
+  const url = window.URL.createObjectURL(new Blob([blob], { type: blob.type || "application/octet-stream" }))
   const link = document.createElement("a")
   link.href = url
   link.download = fileName
@@ -321,16 +323,14 @@ function openBlob(blob, fileName, inline) {
 }
 
 function handlePreview(row) {
-  previewDocument(row.id).then(response => {
-    openBlob(response, row.documentName, true)
-  }).catch(() => {
-    proxy.$modal.msgError("预览失败，可尝试下载后查看")
-  })
+  previewDocId.value = row.id
+  previewDocName.value = row.documentName
+  previewOpen.value = true
 }
 
 function handleDownload(row) {
   downloadDocument(row.id).then(response => {
-    openBlob(response, row.documentName, false)
+    openBlob(response, row.documentName)
   }).catch(() => {
     proxy.$modal.msgError("下载失败")
   })
