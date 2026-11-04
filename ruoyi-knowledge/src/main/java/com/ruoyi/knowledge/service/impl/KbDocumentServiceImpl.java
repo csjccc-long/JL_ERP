@@ -187,6 +187,7 @@ public class KbDocumentServiceImpl implements IKbDocumentService
         }
         catch (IOException e)
         {
+            log.error("保存上传文件失败: {}", e.getMessage(), e);
             throw new ServiceException("保存上传文件失败");
         }
 
@@ -386,7 +387,13 @@ public class KbDocumentServiceImpl implements IKbDocumentService
         {
             throw new ServiceException("文档当前不可下载", 400);
         }
-        Path path = Paths.get(document.getFilePath()).toAbsolutePath().normalize();
+        Path path = Paths.get(document.getFilePath());
+        if (!path.isAbsolute())
+        {
+            // 历史/演示数据里存的是相对路径，统一按上传根目录解析，避免落到进程工作目录
+            path = Paths.get(uploadPath).resolve(path);
+        }
+        path = path.toAbsolutePath().normalize();
         if (!Files.exists(path))
         {
             throw new ServiceException("文档文件不存在", 404);

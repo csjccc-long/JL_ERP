@@ -29,13 +29,15 @@
             <div v-for="citation in item.citations" :key="citation.order" class="citation-item">
               <el-tag size="small" type="primary" effect="plain">[{{ citation.order }}] {{ citation.documentName }}</el-tag>
               <span v-if="citation.pageNumber" class="citation-page">第 {{ citation.pageNumber }} 页</span>
-              <el-button link type="primary" size="small" @click="openDocument(citation.documentId)">查看原文</el-button>
+              <el-button link type="primary" size="small" @click="openDocument(citation)">查看原文</el-button>
             </div>
           </div>
           <div v-if="item.statusText" class="status-text">{{ item.statusText }}</div>
         </div>
       </div>
     </div>
+
+    <file-preview v-model="previewOpen" :document-id="previewDocId" :document-name="previewDocName" />
 
     <div class="assistant-input">
       <el-input v-model="question" type="textarea" :rows="3" resize="none" placeholder="请输入问题，Enter 发送，Shift + Enter 换行" @keydown.enter="handleEnter" />
@@ -52,7 +54,7 @@
 
 <script setup name="AssistantPanel">
 import { listMessages, askStream, assistantHealth } from "@/api/knowledge/assistant"
-import request from "@/utils/request"
+import FilePreview from "@/components/FilePreview"
 
 const props = defineProps({
   contextType: {
@@ -84,6 +86,9 @@ const loadingMessages = ref(false)
 const messagesRef = ref(null)
 const currentSessionId = ref(props.sessionId)
 const health = ref(null)
+const previewOpen = ref(false)
+const previewDocId = ref(undefined)
+const previewDocName = ref("")
 let abortHandler = null
 
 const healthType = computed(() => {
@@ -240,19 +245,11 @@ function copyTrace(traceId) {
   proxy.$modal.msgSuccess("追踪号：" + traceId)
 }
 
-function openDocument(documentId) {
-  if (!documentId) return
-  request({
-    url: "/knowledge/document/preview/" + documentId,
-    method: "get",
-    responseType: "blob"
-  }).then(blob => {
-    const url = window.URL.createObjectURL(new Blob([blob], { type: blob.type || "application/pdf" }))
-    window.open(url, "_blank")
-    setTimeout(() => window.URL.revokeObjectURL(url), 60000)
-  }).catch(() => {
-    proxy.$modal.msgError("原文打开失败，请确认文档是否存在或是否有权访问")
-  })
+function openDocument(citation) {
+  if (!citation || !citation.documentId) return
+  previewDocId.value = citation.documentId
+  previewDocName.value = citation.documentName || ""
+  previewOpen.value = true
 }
 
 watch(() => props.sessionId, value => {
