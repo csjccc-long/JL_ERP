@@ -23,13 +23,13 @@
         <el-button type="primary" plain icon="Plus" @click="handleAdd" v-hasPermi="['erp:request:add']">新增</el-button>
       </el-col>
       <el-col :span="1.5">
-        <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate" v-hasPermi="['erp:request:edit']">修改</el-button>
+        <el-button plain icon="Edit" :disabled="single" @click="handleUpdate" v-hasPermi="['erp:request:edit']">修改</el-button>
       </el-col>
       <el-col :span="1.5">
         <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete" v-hasPermi="['erp:request:remove']">删除</el-button>
       </el-col>
       <el-col :span="1.5">
-        <el-button type="warning" plain icon="Download" @click="handleExport" v-hasPermi="['erp:request:export']">导出</el-button>
+        <el-button plain icon="Download" @click="handleExport" v-hasPermi="['erp:request:export']">导出</el-button>
       </el-col>
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
     </el-row>

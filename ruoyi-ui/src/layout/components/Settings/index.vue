@@ -139,7 +139,7 @@ const theme = ref(settingsStore.theme)
 const sideTheme = ref(settingsStore.sideTheme)
 const tagsViewPersist = ref(settingsStore.tagsViewPersist)
 const storeSettings = computed(() => settingsStore)
-const predefineColors = ref(["#409EFF", "#ff4500", "#ff8c00", "#ffd700", "#90ee90", "#00ced1", "#1e90ff", "#c71585"])
+const predefineColors = ref(["#00BEB4", "#161618", "#3BA05C", "#FAAD14", "#D8494B", "#1E90FF", "#75787A", "#c71585"])
 
 /** 是否需要dynamicTitle */
 function dynamicTitleChange() {
@@ -203,14 +203,14 @@ function saveSetting() {
     "sideTheme": storeSettings.value.sideTheme,
     "theme": storeSettings.value.theme
   }
-  localStorage.setItem("layout-setting", JSON.stringify(layoutSetting))
+  localStorage.setItem("jlerp-layout", JSON.stringify(layoutSetting))
   setTimeout(proxy.$modal.closeLoading(), 1000)
 }
 
 function resetSetting() {
   proxy.$cache.local.remove('tags-view-visited')
   proxy.$modal.loading("正在清除设置缓存并刷新，请稍候...")
-  localStorage.removeItem("layout-setting")
+  localStorage.removeItem("jlerp-layout")
   setTimeout("window.location.reload()", 1000)
 }
 
