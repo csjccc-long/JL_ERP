@@ -21,7 +21,7 @@
         <el-button type="primary" plain icon="Plus" @click="handleAdd" v-hasPermi="['erp:material:add']">新增</el-button>
       </el-col>
       <el-col :span="1.5">
-        <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate" v-hasPermi="['erp:material:edit']">修改</el-button>
+        <el-button plain icon="Edit" :disabled="single" @click="handleUpdate" v-hasPermi="['erp:material:edit']">修改</el-button>
       </el-col>
       <el-col :span="1.5">
         <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete" v-hasPermi="['erp:material:remove']">删除</el-button>

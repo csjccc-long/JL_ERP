@@ -150,13 +150,13 @@ function formatAmount(value) {
 
 function buildCards(data) {
   return [
-    { key: "supplierTotal", title: "供应商总数", value: data.supplierTotal ?? 0, tip: "待准入 " + (data.supplierPending ?? 0) + " 家", color: "#409eff" },
-    { key: "contractActive", title: "生效合同", value: data.contractActive ?? 0, tip: "30 天内到期 " + (data.contractExpiring ?? 0) + " 份", color: "#67c23a" },
-    { key: "requestPending", title: "待审批申请", value: data.requestPending ?? 0, tip: "采购申请", color: "#e6a23c" },
-    { key: "orderPending", title: "待审批订单", value: data.orderPending ?? 0, tip: "部分到货 " + (data.orderPartial ?? 0) + " 单", color: "#e6a23c" },
-    { key: "orderOverdue", title: "逾期未到货", value: data.orderOverdue ?? 0, tip: "期望到货日期已过", color: "#f56c6c" },
-    { key: "inventoryAmount", title: "库存金额", value: formatAmount(data.inventoryAmount), tip: "低库存物料 " + (data.lowStockCount ?? 0) + " 项", color: "#409eff" },
-    { key: "monthlyReceiptAmount", title: "本月入库金额", value: formatAmount(data.monthlyReceiptAmount), tip: "累计入库 " + (data.receiptTotal ?? 0) + " 单", color: "#67c23a" }
+    { key: "supplierTotal", title: "供应商总数", value: data.supplierTotal ?? 0, tip: "待准入 " + (data.supplierPending ?? 0) + " 家", color: "#00a89f" },
+    { key: "contractActive", title: "生效合同", value: data.contractActive ?? 0, tip: "30 天内到期 " + (data.contractExpiring ?? 0) + " 份", color: "#3ba05c" },
+    { key: "requestPending", title: "待审批申请", value: data.requestPending ?? 0, tip: "采购申请", color: "#d99a06" },
+    { key: "orderPending", title: "待审批订单", value: data.orderPending ?? 0, tip: "部分到货 " + (data.orderPartial ?? 0) + " 单", color: "#d99a06" },
+    { key: "orderOverdue", title: "逾期未到货", value: data.orderOverdue ?? 0, tip: "期望到货日期已过", color: "#d8494b" },
+    { key: "inventoryAmount", title: "库存金额", value: formatAmount(data.inventoryAmount), tip: "低库存物料 " + (data.lowStockCount ?? 0) + " 项", color: "#00a89f" },
+    { key: "monthlyReceiptAmount", title: "本月入库金额", value: formatAmount(data.monthlyReceiptAmount), tip: "累计入库 " + (data.receiptTotal ?? 0) + " 单", color: "#3ba05c" }
   ]
 }
 
@@ -216,9 +216,15 @@ function renderTrendChart(list) {
         name: "入库金额",
         type: "line",
         smooth: true,
-        areaStyle: {},
         data: amounts,
-        itemStyle: { color: "#409eff" }
+        lineStyle: { width: 2, color: "#00beb4" },
+        itemStyle: { color: "#00beb4" },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: "rgba(0,190,180,0.20)" },
+            { offset: 1, color: "rgba(0,190,180,0)" }
+          ])
+        }
       }
     ]
   }, true)

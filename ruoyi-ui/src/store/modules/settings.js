@@ -1,21 +1,20 @@
 import defaultSettings from '@/settings'
-import { useDark, useToggle } from '@vueuse/core'
 import { useDynamicTitle } from '@/utils/dynamicTitle'
 import { handleThemeStyle } from '@/utils/theme'
 
-const isDark = useDark()
-const toggleDark = useToggle(isDark)
+// 后台固定浅色主题：不再跟随系统深色偏好，避免与品牌浅色样式混用
+const isDark = ref(false)
 
 const { sideTheme, showSettings, navType, tagsView, tagsViewPersist, tagsIcon, tagsViewStyle, fixedHeader, sidebarLogo, dynamicTitle, footerVisible, footerContent } = defaultSettings
 
-const storageSetting = JSON.parse(localStorage.getItem('layout-setting')) || ''
+const storageSetting = JSON.parse(localStorage.getItem('jlerp-layout')) || ''
 
 const useSettingsStore = defineStore(
   'settings',
   {
     state: () => ({
       title: '',
-      theme: storageSetting.theme || '#409EFF',
+      theme: storageSetting.theme || '#00BEB4',
       sideTheme: storageSetting.sideTheme || sideTheme,
       showSettings: showSettings,
       navType: storageSetting.navType === undefined ? navType : storageSetting.navType,
@@ -46,7 +45,8 @@ const useSettingsStore = defineStore(
       // 切换暗黑模式
       toggleTheme() {
         this.isDark = !this.isDark
-        toggleDark()
+        isDark.value = this.isDark
+        document.documentElement.classList.toggle('dark', this.isDark)
         nextTick(() => {
           handleThemeStyle(this.theme)
         })

@@ -144,8 +144,9 @@ function isActive(r) {
 function tagActiveStyle(tag) {
   if (!isActive(tag) || tagsViewStyle.value !== 'card') return {}
   return {
-    'background-color': theme.value,
-    'border-color': theme.value
+    'background-color': 'var(--current-color-light)',
+    'border-color': 'var(--current-color)',
+    'color': 'var(--current-color)'
   }
 }
 
