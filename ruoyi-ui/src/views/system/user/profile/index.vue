@@ -17,27 +17,47 @@
       </el-col>
 
       <el-col :span="18" :md="16" :sm="14" :xs="24">
-        <section class="profile-panel">
-          <header class="panel-head">
-            <div class="panel-head__text">
-              <p class="panel-head__title">基本资料</p>
-              <p class="panel-head__sub">维护昵称、联系方式与登录密码</p>
-            </div>
-            <span class="panel-head__tag">
-              <i class="panel-head__dot" />
+        <section class="profile-work">
+          <nav class="work-rail" role="tablist" aria-orientation="vertical" aria-label="账号设置">
+            <button
+              v-for="item in modes"
+              :key="item.name"
+              type="button"
+              role="tab"
+              class="work-switch__btn"
+              :class="{ 'is-active': mode === item.name }"
+              :aria-selected="mode === item.name"
+              @click="selectMode(item.name)"
+            >
+              {{ item.label }}
+            </button>
+            <span class="work-tag">
+              <i class="work-tag__dot" />
               账号已启用
             </span>
-          </header>
+          </nav>
 
-          <div class="panel-body">
-            <el-tabs v-model="selectedTab" class="panel-tabs">
-              <el-tab-pane label="基本资料" name="userinfo">
-                <userInfo :user="state.user" />
-              </el-tab-pane>
-              <el-tab-pane label="修改密码" name="resetPwd">
-                <resetPwd />
-              </el-tab-pane>
-            </el-tabs>
+          <div class="work-main">
+            <badgeCard
+              :palette="palette"
+              :name="draft.nickName"
+              :phone="draft.phonenumber"
+              :email="draft.email"
+              :sex="draft.sex"
+              :flipped="mode === 'resetPwd'"
+              :active-field="activeField"
+              :secret-label="secretLabel"
+              :secret-length="secretLength"
+            />
+
+            <userInfo
+              v-if="mode === 'userinfo'"
+              v-model:palette="palette"
+              :user="state.user"
+              @active-field="activeField = $event"
+              @draft="draft = $event"
+            />
+            <resetPwd v-else @active-field="activeField = $event" @secret="onSecret" />
           </div>
         </section>
       </el-col>
@@ -69,20 +89,72 @@
 <script setup name="Profile">
 import profileCard from "./profileCard"
 import userAvatar from "./userAvatar"
+import badgeCard from "./badge/badgeCard"
 import userInfo from "./userInfo"
 import resetPwd from "./resetPwd"
+import { DEFAULT_PALETTE, paletteOf } from "./badge/badgeArt"
 import { getUserProfile } from "@/api/system/user"
 import useUserStore from "@/store/modules/user"
 
 const route = useRoute()
 const userStore = useUserStore()
-const selectedTab = ref("userinfo")
 const infoOpen = ref(false)
+
+/** 基本资料 / 修改密码——同一张工卡，翻面切换 */
+const modes = [
+  { name: "userinfo", label: "基本资料" },
+  { name: "resetPwd", label: "修改密码" }
+]
+const mode = ref("userinfo")
+
+/** 卡片上弹的提示框跟着哪个字段 */
+const activeField = ref("")
+/** 卡背圆点：记当前输入的是哪个密码、多少位，永远不记内容 */
+const secretLabel = ref("新密码")
+const secretLength = ref(0)
+
+const onSecret = payload => {
+  if (!payload) return
+  secretLabel.value = payload.label || "新密码"
+  secretLength.value = Number(payload.length) || 0
+}
+
 const state = reactive({
   user: {},
   roleGroup: "",
   postGroup: ""
 })
+
+/** 卡片实时预览的数据，跟着表单走 */
+const draft = ref({ nickName: "", phonenumber: "", email: "", sex: "" })
+
+const PALETTE_KEY = "erp.profile.badge.palette"
+const palette = ref(DEFAULT_PALETTE)
+
+try {
+  const saved = window.localStorage.getItem(PALETTE_KEY)
+  if (saved) palette.value = paletteOf(saved).key
+} catch (e) {
+  palette.value = DEFAULT_PALETTE
+}
+
+watch(palette, value => {
+  try {
+    window.localStorage.setItem(PALETTE_KEY, value)
+  } catch (e) {
+    // 隐私模式下写不进去，不影响当前会话
+  }
+})
+
+const selectMode = name => {
+  if (mode.value === name) return
+  activeField.value = ""
+  if (name !== "resetPwd") {
+    secretLabel.value = "新密码"
+    secretLength.value = 0
+  }
+  mode.value = name
+}
 
 const heroTitle = computed(() => {
   const dept = state.user.dept && state.user.dept.deptName
@@ -110,14 +182,18 @@ function getUser() {
     state.user = response.data
     state.roleGroup = response.roleGroup
     state.postGroup = response.postGroup
+    draft.value = {
+      nickName: state.user.nickName,
+      phonenumber: state.user.phonenumber,
+      email: state.user.email,
+      sex: state.user.sex
+    }
   })
 }
 
 onMounted(() => {
   const activeTab = route.params && route.params.activeTab
-  if (activeTab) {
-    selectedTab.value = activeTab
-  }
+  if (activeTab === "resetPwd") mode.value = "resetPwd"
   getUser()
 })
 </script>
@@ -148,50 +224,112 @@ onMounted(() => {
   margin-bottom: 18px;
 }
 
-/* ---------- 右侧资料面板：与卡片同款玻璃质感 ---------- */
-.profile-panel {
-  position: relative;
-  border: 1px solid var(--pf-edge);
-  border-radius: 24px;
-  background: rgba(38, 35, 46, 0.66);
-  box-shadow:
-    0 22px 44px -20px rgba(0, 0, 0, 0.8),
-    0 6px 16px -8px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  backdrop-filter: blur(20px) saturate(1.6);
-  overflow: hidden;
-}
-
-.panel-head {
+/* ---------- 右侧：不再套整块面板，卡片与表单各自独立 ---------- */
+.profile-work {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 18px 24px 14px;
-  border-bottom: 1px solid var(--pf-line);
+  align-items: flex-start;
+  justify-content: center;
+  gap: 18px;
 }
 
-.panel-head__text {
-  min-width: 0;
+/* 左侧竖排的页签 + 账号状态 */
+.work-rail {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 104px;
+  padding-top: 6px;
+  position: sticky;
+  top: 16px;
 }
 
-.panel-head__title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.4;
+.work-switch__btn {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--pf-edge);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--pf-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.work-switch__btn:hover {
   color: var(--pf-ink);
+  background: rgba(255, 255, 255, 0.07);
+  transform: translateX(2px);
 }
 
-.panel-head__sub {
-  margin: 3px 0 0;
-  font-size: 12.5px;
-  line-height: 1.4;
-  color: var(--pf-faint);
+.work-switch__btn.is-active {
+  color: var(--pf-accent-glow);
+  background: rgba(0, 190, 180, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(0, 190, 180, 0.34);
+  font-weight: 600;
 }
 
-.panel-head__tag {
+/* 卡片、表单共用右侧这一列，宽度一致 */
+.work-rail .work-tag {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 4px 9px;
+  font-size: 11px;
+}
+
+.work-main {
+  flex: 1;
+  min-width: 0;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.work-main > * {
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .profile-work {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .work-rail {
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    padding-top: 0;
+  }
+
+  .work-switch__btn {
+    width: auto;
+    padding: 9px 16px;
+    border-radius: 999px;
+    text-align: center;
+  }
+
+  .work-switch__btn:hover {
+    transform: none;
+  }
+
+  .work-tag {
+    margin-left: auto;
+  }
+
+  .work-main {
+    max-width: 560px;
+    width: 100%;
+    margin: 0 auto;
+  }
+}
+
+.work-tag {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -205,7 +343,7 @@ onMounted(() => {
   font-weight: 600;
 }
 
-.panel-head__dot {
+.work-tag__dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -213,112 +351,66 @@ onMounted(() => {
   box-shadow: 0 0 8px rgba(34, 197, 94, 0.9);
 }
 
-.panel-body {
-  padding: 18px 24px 26px;
-}
-
-/* ---------- 页签 ---------- */
-#app .profile-page .panel-tabs {
-  :deep(.el-tabs__header) {
-    margin-bottom: 22px;
-  }
-
-  :deep(.el-tabs__nav-wrap::after) {
-    display: none;
-  }
-
-  :deep(.el-tabs__active-bar) {
-    display: none;
-  }
-
-  :deep(.el-tabs__item) {
-    height: 34px;
-    line-height: 34px;
-    padding: 0 16px;
-    margin-right: 6px;
-    border-radius: 9px;
-    color: var(--pf-muted);
-    font-size: 13.5px;
-    font-weight: 500;
-    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  :deep(.el-tabs__item:hover) {
-    color: var(--pf-ink);
-    background: rgba(255, 255, 255, 0.06);
-  }
-
-  :deep(.el-tabs__item.is-active) {
-    color: var(--pf-accent-glow);
-    background: rgba(0, 190, 180, 0.14);
-    box-shadow: inset 0 0 0 1px rgba(0, 190, 180, 0.24);
-    font-weight: 600;
-  }
-}
-
-/* ---------- 表单：暗色输入与按钮 ---------- */
-#app .profile-page .panel-body {
+/* ---------- 表单皮肤：两块表单共用一套下划线样式 ---------- */
+#app .profile-page .profile-work {
   :deep(.el-form-item__label) {
-    color: rgba(244, 244, 245, 0.62);
+    padding-bottom: 2px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    line-height: 1.4;
+    text-transform: uppercase;
+    color: rgba(244, 244, 245, 0.42);
   }
 
-  :deep(.el-input__wrapper),
-  :deep(.el-textarea__inner) {
-    background-color: rgba(255, 255, 255, 0.045);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  :deep(.el-input__wrapper) {
+    height: 42px;
+    padding: 0;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    transition: border-color 0.22s ease;
   }
 
-  :deep(.el-input__wrapper:hover),
-  :deep(.el-textarea__inner:hover) {
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+  :deep(.el-input__wrapper:hover) {
+    border-bottom-color: rgba(255, 255, 255, 0.28);
+    box-shadow: none !important;
   }
 
-  :deep(.el-input__wrapper.is-focus),
-  :deep(.el-textarea__inner:focus) {
-    box-shadow:
-      0 0 0 1px rgba(0, 190, 180, 0.85) inset,
-      0 0 0 3px rgba(0, 190, 180, 0.16) !important;
+  :deep(.el-input__wrapper.is-focus) {
+    border-bottom-color: #00beb4;
+    box-shadow: 0 1px 0 0 #00beb4 !important;
   }
 
   :deep(.el-input__inner) {
-    color: var(--pf-ink);
+    height: 40px;
+    font-size: 14.5px;
+    color: #f4f4f5;
   }
 
   :deep(.el-input__inner::placeholder) {
-    color: rgba(244, 244, 245, 0.32);
+    color: rgba(244, 244, 245, 0.24);
   }
 
   :deep(.el-input__password),
   :deep(.el-input__suffix-inner) {
-    color: var(--pf-muted);
+    color: rgba(244, 244, 245, 0.55);
   }
 
-  :deep(.el-radio__label) {
-    color: rgba(244, 244, 245, 0.72);
-  }
-
-  :deep(.el-radio__inner) {
-    border-color: rgba(255, 255, 255, 0.26);
-    background: rgba(255, 255, 255, 0.06);
-  }
-
-  :deep(.el-radio.is-checked .el-radio__inner) {
-    border-color: var(--pf-accent);
-    background: var(--pf-accent);
-  }
-
-  :deep(.el-radio.is-checked .el-radio__label) {
-    color: var(--pf-accent-glow);
-  }
-
+  /* 错误提示参与排版，避免压到下一个字段的标签 */
   :deep(.el-form-item__error) {
-    color: #ff9b9b;
+    position: static;
+    padding-top: 5px;
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: #ff8a80;
   }
 
   :deep(.el-button) {
-    height: 34px;
-    padding: 0 18px;
-    border-radius: 10px;
+    height: 42px;
+    padding: 0 26px;
+    border-radius: 11px;
     font-weight: 600;
     transition: filter 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
   }
@@ -340,12 +432,6 @@ onMounted(() => {
     --el-button-bg-color: rgba(255, 255, 255, 0.05);
     --el-button-border-color: rgba(255, 255, 255, 0.14);
     --el-button-text-color: #f6a5a5;
-    --el-button-hover-bg-color: rgba(239, 68, 68, 0.16);
-    --el-button-hover-border-color: rgba(239, 68, 68, 0.36);
-    --el-button-hover-text-color: #ffc4c4;
-    --el-button-active-bg-color: rgba(239, 68, 68, 0.22);
-    --el-button-active-border-color: rgba(239, 68, 68, 0.42);
-    --el-button-active-text-color: #ffd7d7;
   }
 }
 
