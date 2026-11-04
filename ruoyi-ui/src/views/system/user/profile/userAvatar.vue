@@ -1,7 +1,7 @@
 <template>
   <div class="user-info-head" @click="editCropper()">
-    <img :src="options.img" title="点击上传头像" class="img-circle img-lg" />
-    <el-dialog :title="title" v-model="open" width="800px" append-to-body @opened="modalOpened" @close="closeDialog">
+    <img :src="options.img" title="点击更换头像" class="user-info-photo" />
+    <el-dialog :title="title" v-model="open" width="800px" append-to-body class="avatar-dialog" @opened="modalOpened" @close="closeDialog">
       <el-row>
         <el-col :xs="24" :md="12" :style="{ height: '350px' }">
           <vue-cropper
@@ -75,8 +75,8 @@ const title = ref("修改头像")
 const options = reactive({
   img: userStore.avatar,     // 裁剪图片的地址
   autoCrop: true,            // 是否默认生成截图框
-  autoCropWidth: 200,        // 默认生成截图框宽度
-  autoCropHeight: 200,       // 默认生成截图框高度
+  autoCropWidth: 300,        // 默认生成截图框宽度
+  autoCropHeight: 360,       // 默认生成截图框高度
   fixedBox: true,            // 固定截图框大小 不允许改变
   outputType: "png",         // 默认生成截图为PNG格式
   filename: 'avatar',        // 文件名称
@@ -156,25 +156,112 @@ function closeDialog() {
 <style lang='scss' scoped>
 .user-info-head {
   position: relative;
-  display: inline-block;
-  height: 120px;
+  display: block;
+  flex: 1;
+  cursor: pointer;
 }
 
-.user-info-head:hover:after {
+.user-info-photo {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 12%;
+  transition: filter 0.35s ease;
+}
+
+.user-info-head::after {
   content: "+";
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  color: #eee;
-  background: rgba(0, 0, 0, 0.5);
-  font-size: 24px;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  background: rgba(5, 12, 18, 0.52);
+  color: #eafaf7;
+  font-size: 22px;
   font-style: normal;
+  opacity: 0;
+  transition: opacity 0.25s ease;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  cursor: pointer;
-  line-height: 110px;
-  border-radius: 50%;
+}
+
+.user-info-head:hover::after {
+  opacity: 1;
+}
+</style>
+
+<!-- 弹窗被 teleport 到 body，样式需脱离 scoped 作用域 -->
+<style lang="scss">
+.avatar-dialog.el-dialog,
+.avatar-dialog .el-dialog {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: #1b1922;
+  box-shadow: 0 30px 70px -24px rgba(0, 0, 0, 0.9);
+
+  .el-dialog__header {
+    padding: 18px 22px 14px;
+    margin-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .el-dialog__title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #f4f4f5;
+  }
+
+  .el-dialog__headerbtn .el-dialog__close {
+    color: rgba(244, 244, 245, 0.5);
+  }
+
+  .el-dialog__headerbtn:hover .el-dialog__close {
+    color: #f4f4f5;
+  }
+
+  .el-dialog__body {
+    padding: 18px 22px 14px;
+  }
+
+  .el-button {
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+
+  .el-button--default {
+    --el-button-bg-color: rgba(255, 255, 255, 0.05);
+    --el-button-border-color: rgba(255, 255, 255, 0.14);
+    --el-button-text-color: rgba(244, 244, 245, 0.82);
+    --el-button-hover-bg-color: rgba(255, 255, 255, 0.1);
+    --el-button-hover-border-color: rgba(255, 255, 255, 0.24);
+    --el-button-hover-text-color: #ffffff;
+    --el-button-active-bg-color: rgba(255, 255, 255, 0.14);
+    --el-button-active-border-color: rgba(255, 255, 255, 0.28);
+  }
+
+  .el-button--primary {
+    --el-button-bg-color: #00c9bd;
+    --el-button-border-color: #00c9bd;
+    --el-button-text-color: #04211f;
+    --el-button-hover-bg-color: #1adccf;
+    --el-button-hover-border-color: #1adccf;
+    --el-button-hover-text-color: #04211f;
+    --el-button-active-bg-color: #00b0a6;
+    --el-button-active-border-color: #00b0a6;
+    --el-button-active-text-color: #04211f;
+    font-weight: 600;
+  }
+
+  .avatar-upload-preview {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+  }
 }
 </style>
