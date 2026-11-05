@@ -36,6 +36,15 @@ export function disableDocument(id) {
   return request({ url: '/knowledge/document/' + id, method: 'delete' })
 }
 
+// 启用（恢复）已停用的文档
+export function enableDocument(id) {
+  return request({
+    url: '/knowledge/document/' + id + '/enable',
+    method: 'post',
+    timeout: 180000
+  })
+}
+
 // 文档业务关联
 export function listLinks(id) {
   return request({ url: '/knowledge/document/' + id + '/links', method: 'get' })

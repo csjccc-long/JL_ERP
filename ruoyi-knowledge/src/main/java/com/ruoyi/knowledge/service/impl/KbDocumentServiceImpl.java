@@ -301,6 +301,17 @@ public class KbDocumentServiceImpl implements IKbDocumentService
     @Override
     public KbDocument retryIndex(Long id)
     {
+        return retryIndex(id, false);
+    }
+
+    /**
+     * 重新推送并解析文档
+     *
+     * @param id 文档ID
+     * @param forceReupload 为 true 时忽略旧的 ragDocumentId，强制重新上传原件（停用后 RAGFlow 侧文档已被删除）
+     */
+    private KbDocument retryIndex(Long id, boolean forceReupload)
+    {
         KbDocument document = requireReadable(id);
         if (!permissionService.canManageSpace(document.getSpaceId()))
         {
@@ -319,16 +330,17 @@ public class KbDocumentServiceImpl implements IKbDocumentService
         {
             job = new KbIndexJob();
             job.setDocumentId(document.getId());
+            job.setJobStatus(KbConstants.JOB_PENDING);
             job.setAttemptCount(0);
             job.setCreateTime(new Date());
             indexJobMapper.insert(job);
         }
         try
         {
-            String ragDocumentId = document.getRagDocumentId();
+            String ragDocumentId = forceReupload ? null : document.getRagDocumentId();
             if (StringUtils.isEmpty(ragDocumentId))
             {
-                ragDocumentId = ragFlowClient.uploadDocument(space.getRagDatasetId(), Paths.get(document.getFilePath()),
+                ragDocumentId = ragFlowClient.uploadDocument(space.getRagDatasetId(), resolveFilePath(document),
                         document.getDocumentName());
             }
             documentMapper.markIndexing(document.getId(), ragDocumentId);
@@ -378,6 +390,63 @@ public class KbDocumentServiceImpl implements IKbDocumentService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public KbDocument enableDocument(Long id)
+    {
+        KbDocument document = documentMapper.selectById(id);
+        if (document == null)
+        {
+            throw new ServiceException("文档不存在", 404);
+        }
+        if (!permissionService.canManageSpace(document.getSpaceId()))
+        {
+            throw new ServiceException("无权启用该文档", 403);
+        }
+        if (!KbConstants.DOC_DISABLED.equals(document.getParseStatus()))
+        {
+            // 未停用的文档无需重复启用
+            return document;
+        }
+        KbSpace space = spaceMapper.selectById(document.getSpaceId());
+        if (space == null)
+        {
+            throw new ServiceException("知识空间不存在", 404);
+        }
+        // 恢复为当前生效版本（停用时 is_current 被置 0）
+        if (StringUtils.isNotEmpty(document.getStableKey()))
+        {
+            documentMapper.clearCurrentByStableKey(document.getSpaceId(), document.getStableKey());
+        }
+        documentMapper.updateCurrentFlag(id, 1);
+        // 原始文件已丢失时无法重新推送，先恢复为"已上传"，等用户重新上传后再解析
+        if (!Files.exists(resolveFilePath(document)))
+        {
+            log.warn("启用文档 {} 时原始文件缺失: {}", id, document.getFilePath());
+            documentMapper.markUploaded(id);
+            document.setParseStatus(KbConstants.DOC_UPLOADED);
+            document.setRagDocumentId(null);
+            document.setChunkCount(0);
+            document.setTokenCount(0);
+            return document;
+        }
+        // 停用已把 RAGFlow 文档删除，旧的 ragDocumentId 已失效，重新上传原件再解析
+        return retryIndex(id, true);
+    }
+
+    /**
+     * 解析文档磁盘路径：相对路径统一按上传根目录解析，避免落到进程工作目录
+     */
+    private Path resolveFilePath(KbDocument document)
+    {
+        Path path = Paths.get(document.getFilePath());
+        if (!path.isAbsolute())
+        {
+            path = Paths.get(uploadPath).resolve(path);
+        }
+        return path.toAbsolutePath().normalize();
+    }
+
+    @Override
     public Path resolveDocumentFile(Long id)
     {
         KbDocument document = requireReadable(id);
@@ -387,13 +456,7 @@ public class KbDocumentServiceImpl implements IKbDocumentService
         {
             throw new ServiceException("文档当前不可下载", 400);
         }
-        Path path = Paths.get(document.getFilePath());
-        if (!path.isAbsolute())
-        {
-            // 历史/演示数据里存的是相对路径，统一按上传根目录解析，避免落到进程工作目录
-            path = Paths.get(uploadPath).resolve(path);
-        }
-        path = path.toAbsolutePath().normalize();
+        Path path = resolveFilePath(document);
         if (!Files.exists(path))
         {
             throw new ServiceException("文档文件不存在", 404);

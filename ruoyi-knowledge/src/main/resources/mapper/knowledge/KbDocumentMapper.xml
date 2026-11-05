@@ -187,6 +187,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         update kb_document set parse_status = 'DISABLED', is_current = 0, update_time = sysdate() where id = #{id}
     </update>
 
+    <update id="markUploaded">
+        update kb_document set parse_status = 'UPLOADED', rag_document_id = null, chunk_count = 0, token_count = 0,
+            error_message = null, update_time = sysdate() where id = #{id}
+    </update>
+
     <select id="selectByBusiness" resultType="KbDocument">
         select d.id, d.space_id, d.document_name, d.stable_key, d.document_version, d.is_current, d.file_path,
                d.file_size, d.mime_type, d.checksum_sha256, d.rag_document_id, d.parse_status, d.chunk_count,

@@ -111,6 +111,14 @@ public interface KbDocumentMapper
     int markDisabled(@Param("id") Long id);
 
     /**
+     * 标记为已上传（恢复停用的文档，但本地原始文件缺失时使用）
+     *
+     * @param id 文档ID
+     * @return 影响行数
+     */
+    int markUploaded(@Param("id") Long id);
+
+    /**
      * 查询关联指定业务对象的文档
      *
      * @param businessType 业务类型
