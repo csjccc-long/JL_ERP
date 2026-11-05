@@ -218,6 +218,12 @@ body {
       margin: 2px 6px;
       padding: 0 !important;
 
+      /* Element Plus 折叠时会把菜单项内容包进 tooltip 触发器，需一并去掉其左右内边距，
+         否则首页这类单级菜单的图标会被挤到侧边栏外面裁掉 */
+      .el-menu-tooltip__trigger {
+        padding: 0 !important;
+      }
+
       .svg-icon {
         margin-left: 14px !important;
       }

@@ -358,8 +358,30 @@ function renderTrend(list) {
   }, true)
 }
 
+let chartResizeObserver = null
+let chartResizeFrame = 0
+
 function resizeChart() {
-  trendChart && trendChart.resize()
+  if (!trendChart) return
+  const el = trendChartRef.value
+  if (!el || !el.clientWidth || !el.clientHeight) return
+  trendChart.resize()
+}
+
+/** 合并同一帧内的多次尺寸变化（侧边栏 280ms 过渡期间会连续触发） */
+function scheduleChartResize() {
+  if (chartResizeFrame) cancelAnimationFrame(chartResizeFrame)
+  chartResizeFrame = requestAnimationFrame(() => {
+    chartResizeFrame = 0
+    resizeChart()
+  })
+}
+
+/** 监听图表容器自身的尺寸变化：折叠/展开侧边栏、窗口缩放、栅格换行都会触发 */
+function observeChart() {
+  if (chartResizeObserver || typeof ResizeObserver === "undefined" || !trendChartRef.value) return
+  chartResizeObserver = new ResizeObserver(scheduleChartResize)
+  chartResizeObserver.observe(trendChartRef.value)
 }
 
 onMounted(() => {
@@ -367,7 +389,8 @@ onMounted(() => {
   loadPending()
   loadLowStock()
   loadTrend()
-  window.addEventListener("resize", resizeChart)
+  window.addEventListener("resize", scheduleChartResize)
+  observeChart()
 })
 
 onActivated(() => {
@@ -375,10 +398,22 @@ onActivated(() => {
   loadPending()
   loadLowStock()
   loadTrend()
+  nextTick(() => {
+    observeChart()
+    resizeChart()
+  })
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener("resize", resizeChart)
+  window.removeEventListener("resize", scheduleChartResize)
+  if (chartResizeObserver) {
+    chartResizeObserver.disconnect()
+    chartResizeObserver = null
+  }
+  if (chartResizeFrame) {
+    cancelAnimationFrame(chartResizeFrame)
+    chartResizeFrame = 0
+  }
   trendChart && trendChart.dispose()
   trendChart = null
 })

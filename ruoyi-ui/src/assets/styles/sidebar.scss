@@ -210,10 +210,14 @@
       margin-left: 54px;
     }
 
+    .submenu-title-noDropdown,
     .sub-menu-title-noDropdown {
       padding: 0 !important;
       position: relative;
 
+      /* Element Plus 2.x 折叠态会把菜单项内容包进 tooltip 触发器（类名 .el-menu-tooltip__trigger），
+         旧的 .el-tooltip 选择器已匹配不到，残留的左右内边距会把单级菜单图标挤出侧边栏 */
+      .el-menu-tooltip__trigger,
       .el-tooltip {
         padding: 0 !important;
 
