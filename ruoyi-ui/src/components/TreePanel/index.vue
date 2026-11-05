@@ -58,10 +58,21 @@
         <template #default="{ node, data }">
           <slot name="node" :node="node" :data="data">
             <span class="tree-node">
-              <el-icon class="node-icon">
-                <Folder v-if="data.children && data.children.length" />
-                <Document v-else />
-              </el-icon>
+              <svg v-if="data.children && data.children.length" class="node-icon node-icon--folder" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M3 6.6A2.6 2.6 0 0 1 5.6 4h3.3c.7 0 1.3.27 1.8.74L11.9 6h6.5A2.6 2.6 0 0 1 21 8.6v8.8A2.6 2.6 0 0 1 18.4 20H5.6A2.6 2.6 0 0 1 3 17.4V6.6Z"
+                  fill="#00beb4"
+                />
+                <path
+                  d="M3 9.6h18v7.8A2.6 2.6 0 0 1 18.4 20H5.6A2.6 2.6 0 0 1 3 17.4V9.6Z"
+                  fill="#00a79e"
+                  opacity="0.55"
+                />
+              </svg>
+              <svg v-else class="node-icon node-icon--file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+                <path d="M6.5 3.5h7.2l4.3 4.3v12.7a1 1 0 0 1-1 1h-10.5a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" />
+                <path d="M13.7 3.5v4.3h4.3" />
+              </svg>
               <span class="node-label" :title="node.label">{{ node.label }}</span>
             </span>
           </slot>
@@ -633,8 +644,8 @@ onBeforeUnmount(() => {
   transition: all 0.2s;
   
   &:hover {
-    color: #409eff;
-    background: #ecf5ff;
+    color: var(--el-color-primary);
+    background: #e6f9f7;
   }
 }
 
@@ -659,7 +670,7 @@ onBeforeUnmount(() => {
     gap: 5px;
 
     .el-icon {
-      color: #409eff;
+      color: var(--el-color-primary);
       font-size: 16px;
     }
   }
@@ -681,8 +692,8 @@ onBeforeUnmount(() => {
   transition: all 0.2s;
 
   &:hover {
-    color: #409eff;
-    background: #ecf5ff;
+    color: var(--el-color-primary);
+    background: #e6f9f7;
   }
 }
 
@@ -713,23 +724,54 @@ onBeforeUnmount(() => {
     }
   }
 
+  /* Finder 风格：行高 30px、圆角 7px、选中行浅灰底 + 细描边 */
   :deep(.el-tree-node__content) {
-    height: 32px;
-    border-radius: 4px;
+    height: 30px;
+    border-radius: 7px;
     margin-bottom: 1px;
+    padding-right: 4px;
+    color: #1f2328;
+    transition: background 0.14s ease, box-shadow 0.14s ease;
 
     &:hover {
-      background: #f0f7ff;
+      background: #f2fbfa;
     }
   }
 
   :deep(.el-tree-node.is-current > .el-tree-node__content) {
-    background: #e6f0fd;
-    color: #409eff;
-    font-weight: 600;
+    background: #e6f9f7;
+    box-shadow: inset 0 0 0 1px #99e5e0;
+    color: #0a7d76;
+    font-weight: 500;
+  }
 
-    .node-icon {
-      color: #409eff !important;
+  /* 默认三角换成 Finder 的 chevron */
+  :deep(.el-tree-node__expand-icon) {
+    padding: 6px 7px 6px 3px;
+    color: #98a2ad;
+    transform: none;
+
+    svg {
+      display: none;
+    }
+
+    &::before {
+      content: "";
+      display: block;
+      width: 5px;
+      height: 5px;
+      border-right: 1.6px solid currentColor;
+      border-bottom: 1.6px solid currentColor;
+      transform: rotate(-45deg);
+      transition: transform 0.18s ease;
+    }
+
+    &.expanded::before {
+      transform: rotate(45deg);
+    }
+
+    &.is-leaf::before {
+      display: none;
     }
   }
 }
@@ -737,20 +779,27 @@ onBeforeUnmount(() => {
 .tree-node {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
   font-size: 13px;
   overflow: hidden;
 
   .node-icon {
-    font-size: 14px;
-    color: #f5a623;
+    width: 17px;
+    height: 17px;
     flex-shrink: 0;
+  }
+
+  .node-icon--file {
+    width: 15px;
+    height: 15px;
+    color: #98a2ad;
   }
 
   .node-label {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    letter-spacing: 0.01em;
   }
 }
 </style>
