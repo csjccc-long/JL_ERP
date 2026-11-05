@@ -100,22 +100,51 @@
           </el-select>
         </el-form-item>
         <el-form-item label="选择文件" prop="file">
-          <el-upload
-            ref="fileRef"
-            :auto-upload="false"
-            :limit="1"
-            :on-change="handleFileChange"
-            :on-remove="handleFileRemove"
-            :file-list="fileList"
-            drag
-            style="width: 100%"
-          >
-            <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-            <div class="el-upload__text">将文件拖到此处，或<em>点击选择</em></div>
-            <template #tip>
-              <div class="el-upload__tip">支持 pdf / doc / docx / xls / xlsx / txt / png / jpg / jpeg，单个文件不超过 {{ maxUploadLabel }}</div>
-            </template>
-          </el-upload>
+          <div class="upload-card">
+            <div
+              class="upload-card__header"
+              :class="{ 'is-dragover': dragOver }"
+              @click="pickFile"
+              @dragover.prevent="dragOver = true"
+              @dragenter.prevent="dragOver = true"
+              @dragleave.prevent="dragOver = false"
+              @drop.prevent="onFileDrop"
+            >
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path
+                  d="M7 10V9C7 6.23858 9.23858 4 12 4C14.7614 4 17 6.23858 17 9V10C19.2091 10 21 11.7909 21 14C21 15.4806 20.1956 16.8084 19 17.5M7 10C4.79086 10 3 11.7909 3 14C3 15.4806 3.8044 16.8084 5 17.5M7 10C7.43285 10 7.84965 10.0688 8.24006 10.1959M12 12V21M12 12L15 15M12 12L9 15"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <p>{{ uploadForm.file ? '重新选择文件' : '点击选择文件，或拖到此处' }}</p>
+            </div>
+            <label class="upload-card__footer" for="kb-upload-input">
+              <svg class="footer-file" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M15.331 6H8.5v20h15V14.154h-8.169z" />
+                <path d="M18.153 6h-.009v5.342H23.5v-.002z" />
+              </svg>
+              <p :class="{ 'is-empty': !uploadForm.file }">{{ uploadForm.file ? uploadForm.file.name : '尚未选择文件' }}</p>
+              <button v-if="uploadForm.file" type="button" class="footer-clear" title="移除文件" @click.stop.prevent="clearFile">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M5.16565 10.1534C5.07629 8.99181 5.99473 8 7.15975 8H16.8402C18.0053 8 18.9237 8.9918 18.8344 10.1534L18.142 19.1534C18.0619 20.1954 17.193 21 16.1479 21H7.85206C6.80699 21 5.93811 20.1954 5.85795 19.1534L5.16565 10.1534Z" stroke="currentColor" stroke-width="2" />
+                  <path d="M19.5 5H4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M10 3C10 2.44772 10.4477 2 11 2H13C13.5523 2 14 2.44772 14 3V5H10V3Z" stroke="currentColor" stroke-width="2" />
+                </svg>
+              </button>
+            </label>
+            <input
+              id="kb-upload-input"
+              ref="fileInputRef"
+              class="upload-card__input"
+              type="file"
+              :accept="uploadAccept"
+              @change="onFilePicked"
+            />
+          </div>
+          <div class="upload-tip">支持 pdf / doc / docx / xls / xlsx / txt / png / jpg / jpeg，单个文件不超过 {{ maxUploadLabel }}</div>
         </el-form-item>
         <el-form-item label="稳定键" prop="stableKey">
           <el-input v-model="uploadForm.stableKey" placeholder="留空默认取文件名（用于版本管理）" />
@@ -234,7 +263,8 @@ const showSearch = ref(true)
 const total = ref(0)
 const uploadOpen = ref(false)
 const uploading = ref(false)
-const fileList = ref([])
+const fileInputRef = ref(null)
+const dragOver = ref(false)
 const previewOpen = ref(false)
 const previewDocId = ref(undefined)
 const previewDocName = ref("")
@@ -375,18 +405,46 @@ function resetQuery() {
 
 function handleUpload() {
   uploadForm.value = { spaceId: queryParams.value.spaceId, stableKey: undefined, businessType: undefined, businessId: undefined, file: undefined }
-  fileList.value = []
+  if (fileInputRef.value) fileInputRef.value.value = ""
   uploadOpen.value = true
 }
 
-function handleFileChange(file, files) {
-  fileList.value = files.slice(-1)
-  uploadForm.value.file = file.raw
+const UPLOAD_EXT = ["pdf", "doc", "docx", "xls", "xlsx", "txt", "png", "jpg", "jpeg"]
+const uploadAccept = UPLOAD_EXT.map(ext => "." + ext).join(",")
+
+function pickFile() {
+  if (fileInputRef.value) fileInputRef.value.click()
 }
 
-function handleFileRemove() {
-  fileList.value = []
+function applyFile(file) {
+  if (!file) return
+  const ext = (file.name.split(".").pop() || "").toLowerCase()
+  if (!UPLOAD_EXT.includes(ext)) {
+    proxy.$modal.msgWarning("不支持的文件类型：" + ext)
+    return
+  }
+  if (file.size > maxUpload.value) {
+    proxy.$modal.msgWarning("文件大小超过限制（" + maxUploadLabel.value + "）")
+    return
+  }
+  uploadForm.value.file = file
+}
+
+function onFilePicked(event) {
+  const file = event.target.files && event.target.files[0]
+  applyFile(file)
+  event.target.value = ""
+}
+
+function onFileDrop(event) {
+  dragOver.value = false
+  const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]
+  applyFile(file)
+}
+
+function clearFile() {
   uploadForm.value.file = undefined
+  if (fileInputRef.value) fileInputRef.value.value = ""
 }
 
 function submitUpload() {
@@ -633,10 +691,150 @@ getList()
   }
 }
 
+.upload-card {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(0, 190, 180, 0.045);
+  box-shadow: 4px 4px 24px rgba(20, 60, 58, 0.08);
+}
+
+.upload-card__header {
+  width: 100%;
+  height: 150px;
+  box-sizing: border-box;
+  border: 2px dashed rgba(0, 190, 180, 0.5);
+  border-radius: 10px;
+  background: rgba(0, 190, 180, 0.03);
+  color: #00beb4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+
+  svg {
+    width: 62px;
+    height: 62px;
+    transition: transform 0.25s ease;
+  }
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    color: #51706c;
+  }
+
+  &:hover,
+  &.is-dragover {
+    border-color: var(--el-color-primary, #00beb4);
+    background: rgba(0, 190, 180, 0.1);
+    box-shadow: inset 0 0 0 1px rgba(0, 190, 180, 0.16);
+
+    svg {
+      transform: translateY(-2px);
+    }
+  }
+}
+
+.upload-card__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 42px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: rgba(0, 190, 180, 0.09);
+  cursor: pointer;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: rgba(0, 190, 180, 0.16);
+  }
+
+  .footer-file {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    fill: var(--el-color-primary, #00beb4);
+  }
+
+  p {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 12.5px;
+    text-align: center;
+    color: #16423c;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  p.is-empty {
+    color: #94a5a2;
+  }
+}
+
+.footer-clear {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #7c8d8a;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 1px 6px rgba(20, 60, 58, 0.14);
+  transition: color 0.2s ease, background 0.2s ease;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    color: #d9534f;
+    background: #fff;
+  }
+}
+
+.upload-card__input {
+  display: none;
+}
+
+.upload-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #9a9ea1;
+}
+
 @media (max-width: 768px) {
   .doc-grid {
     grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
     justify-content: stretch;
+  }
+
+  .upload-card__header {
+    height: 120px;
+
+    svg {
+      width: 52px;
+      height: 52px;
+    }
   }
 }
 </style>
