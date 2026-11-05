@@ -60,6 +60,14 @@ public interface IKbDocumentService
     int disableDocument(Long id);
 
     /**
+     * 启用（恢复）已停用的文档，并重新推送到 RAGFlow 解析
+     *
+     * @param id 文档ID
+     * @return 文档
+     */
+    KbDocument enableDocument(Long id);
+
+    /**
      * 解析文档本地文件路径（鉴权后返回）
      *
      * @param id 文档ID

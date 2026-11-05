@@ -124,6 +124,17 @@ public class KbDocumentController extends BaseController
     }
 
     /**
+     * 启用（恢复）已停用的文档
+     */
+    @PreAuthorize("@ss.hasAnyPermi('knowledge:document:upload,knowledge:document:remove')")
+    @Log(title = "知识文档启用", businessType = BusinessType.UPDATE)
+    @PostMapping({ "/{id}/enable", "/enable/{id}" })
+    public AjaxResult enable(@PathVariable Long id)
+    {
+        return success(documentService.enableDocument(id));
+    }
+
+    /**
      * 下载文档（ERP 鉴权）
      */
     @PreAuthorize("@ss.hasPermi('knowledge:document:list')")

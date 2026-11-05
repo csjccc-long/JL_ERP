@@ -20,14 +20,39 @@
       </el-form-item>
     </el-form>
 
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button type="primary" plain icon="Upload" @click="handleUpload" v-hasPermi="['knowledge:document:upload']">上传文档</el-button>
-      </el-col>
-      <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
-    </el-row>
+    <div class="doc-toolbar">
+      <div class="doc-toolbar__left">
+        <el-button type="primary" icon="Upload" @click="handleUpload" v-hasPermi="['knowledge:document:upload']">上传文档</el-button>
+        <span class="doc-toolbar__hint">共 {{ total }} 篇文档</span>
+      </div>
+      <div class="doc-toolbar__right">
+        <el-radio-group v-model="viewMode" size="small" class="view-switch">
+          <el-radio-button value="folder">文件夹</el-radio-button>
+          <el-radio-button value="list">列表</el-radio-button>
+        </el-radio-group>
+        <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
+      </div>
+    </div>
 
-    <el-table v-loading="loading" :data="documentList">
+    <div v-if="viewMode === 'folder'" v-loading="loading" class="doc-grid">
+      <doc-folder
+        v-for="doc in documentList"
+        :key="doc.id"
+        :doc="doc"
+        :space-name="spaceNameOf(doc.spaceId)"
+        :status-label="statusLabelOf(doc.parseStatus)"
+        :status-type="statusTypeOf(doc.parseStatus)"
+        @open="openDetail"
+        @preview="handlePreview"
+        @download="handleDownload"
+        @link="handleLinks"
+        @disable="handleFolderDisable"
+        @enable="handleEnable"
+      />
+      <el-empty v-if="!loading && !documentList.length" class="doc-grid__empty" description="暂无知识文档" :image-size="86" />
+    </div>
+
+    <el-table v-if="viewMode === 'list'" v-loading="loading" :data="documentList">
       <el-table-column label="文档名称" align="center" prop="documentName" min-width="200" show-overflow-tooltip />
       <el-table-column label="所属空间" align="center" prop="spaceName" width="160" show-overflow-tooltip />
       <el-table-column label="版本" align="center" prop="documentVersion" width="90">
@@ -60,6 +85,7 @@
           <el-button link type="primary" icon="RefreshRight" @click="handleRetry(scope.row)" v-if="scope.row.parseStatus === 'FAILED'" v-hasPermi="['knowledge:document:upload']">重试</el-button>
           <el-button link type="primary" icon="Link" @click="handleLinks(scope.row)" v-hasPermi="['knowledge:document:upload']">关联</el-button>
           <el-button link type="danger" icon="Delete" @click="handleDisable(scope.row)" v-if="scope.row.parseStatus !== 'DISABLED'" v-hasPermi="['knowledge:document:remove']">停用</el-button>
+          <el-button link type="success" icon="RefreshLeft" @click="handleEnable(scope.row)" v-if="scope.row.parseStatus === 'DISABLED'" v-hasPermi="['knowledge:document:upload', 'knowledge:document:remove']">启用</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -112,6 +138,47 @@
       </template>
     </el-dialog>
 
+    <el-drawer v-model="detailOpen" title="文档详情" size="440px" class="doc-detail-drawer">
+      <template v-if="detailDoc">
+        <div class="detail-head">
+          <span class="detail-ext">{{ extOf(detailDoc) }}</span>
+          <div class="detail-head__text">
+            <div class="detail-name">{{ detailDoc.documentName }}</div>
+            <div class="detail-sub">{{ spaceNameOf(detailDoc.spaceId) }}</div>
+          </div>
+        </div>
+        <el-descriptions :column="1" border size="small" class="detail-desc">
+          <el-descriptions-item label="解析状态">
+            <dict-tag :options="erp_document_status" :value="detailDoc.parseStatus" />
+          </el-descriptions-item>
+          <el-descriptions-item label="版本">
+            <span>v{{ detailDoc.documentVersion }}</span>
+            <el-tag v-if="detailDoc.isCurrent == 1" type="success" size="small" style="margin-left: 6px">当前</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="所属空间">{{ spaceNameOf(detailDoc.spaceId) }}</el-descriptions-item>
+          <el-descriptions-item label="分片数">{{ detailDoc.chunkCount || 0 }}</el-descriptions-item>
+          <el-descriptions-item label="文件大小">{{ formatSize(detailDoc.fileSize) }}</el-descriptions-item>
+          <el-descriptions-item label="业务关联">{{ detailDoc.links && detailDoc.links.length ? detailDoc.links.length + ' 条' : '未关联' }}</el-descriptions-item>
+          <el-descriptions-item label="上传时间">{{ detailDoc.createTime || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="就绪时间">{{ detailDoc.readyTime || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="稳定键">{{ detailDoc.stableKey || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="文件类型">{{ detailDoc.mimeType || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="RAG 文档 ID">{{ detailDoc.ragDocumentId || '-' }}</el-descriptions-item>
+          <el-descriptions-item v-if="detailDoc.errorMessage" label="失败原因">
+            <span class="detail-error">{{ detailDoc.errorMessage }}</span>
+          </el-descriptions-item>
+        </el-descriptions>
+        <div class="detail-actions">
+          <el-button v-if="detailDoc.parseStatus !== 'DISABLED'" icon="View" @click="handlePreview(detailDoc)">预览</el-button>
+          <el-button icon="Download" @click="handleDownload(detailDoc)">下载</el-button>
+          <el-button v-if="detailDoc.parseStatus === 'FAILED'" icon="RefreshRight" @click="handleRetry(detailDoc)">重试</el-button>
+          <el-button icon="Link" @click="handleLinks(detailDoc)" v-hasPermi="['knowledge:document:upload']">关联</el-button>
+          <el-button v-if="detailDoc.parseStatus !== 'DISABLED'" type="danger" plain icon="Delete" @click="handleDisable(detailDoc)" v-hasPermi="['knowledge:document:remove']">停用</el-button>
+          <el-button v-else type="success" plain icon="RefreshLeft" @click="handleEnable(detailDoc)" v-hasPermi="['knowledge:document:upload', 'knowledge:document:remove']">启用</el-button>
+        </div>
+      </template>
+    </el-drawer>
+
     <el-drawer v-model="linkOpen" :title="'业务关联 - ' + currentDocName" size="50%">
       <el-form :model="linkForm" ref="linkRef" :inline="true" :rules="linkRules">
         <el-form-item label="业务类型" prop="businessType">
@@ -151,9 +218,10 @@
 
 <script setup name="KbDocument">
 import { useRoute } from "vue-router"
-import { listDocument, uploadDocument, retryDocument, disableDocument, listLinks, addLink, delLink, downloadDocument } from "@/api/knowledge/document"
+import { listDocument, uploadDocument, retryDocument, disableDocument, enableDocument, listLinks, addLink, delLink, downloadDocument } from "@/api/knowledge/document"
 import { spaceOptions } from "@/api/knowledge/space"
 import FilePreview from "@/components/FilePreview"
+import DocFolder from "./components/DocFolder"
 
 const { proxy } = getCurrentInstance()
 const route = useRoute()
@@ -176,6 +244,13 @@ const linkList = ref([])
 const currentDocId = ref(undefined)
 const currentDocName = ref("")
 const maxUpload = ref(52428800)
+const detailOpen = ref(false)
+const detailDoc = ref(null)
+const viewMode = ref(localStorage.getItem("kb-doc-view") === "list" ? "list" : "folder")
+
+watch(viewMode, value => {
+  localStorage.setItem("kb-doc-view", value)
+})
 
 const data = reactive({
   queryParams: {
@@ -215,6 +290,59 @@ function formatSize(size) {
   if (size < 1024) return size + " B"
   if (size < 1024 * 1024) return (size / 1024).toFixed(1) + " KB"
   return (size / 1024 / 1024).toFixed(2) + " MB"
+}
+
+function extOf(doc) {
+  const name = (doc && doc.documentName) || ""
+  const raw = name.includes(".") ? name.split(".").pop() : ""
+  const value = (raw || "").toUpperCase()
+  return value && value.length <= 5 ? value : "FILE"
+}
+
+function spaceNameOf(spaceId) {
+  const hit = spaceOptionList.value.find(item => item.id === spaceId)
+  return hit ? hit.spaceName : "未归属空间"
+}
+
+function statusLabelOf(value) {
+  const hit = (erp_document_status.value || []).find(item => item.value === value)
+  return hit ? hit.label : value || "-"
+}
+
+function statusTypeOf(value) {
+  const hit = (erp_document_status.value || []).find(item => item.value === value)
+  return (hit && hit.elTagType) || "info"
+}
+
+function openDetail(doc) {
+  detailDoc.value = doc
+  detailOpen.value = true
+}
+
+function handleEnable(doc) {
+  proxy.$modal.loading("正在启用并重新解析…")
+  enableDocument(doc.id).then(response => {
+    proxy.$modal.closeLoading()
+    const data = response.data || {}
+    if (data.parseStatus === "UPLOADED") {
+      proxy.$modal.msgWarning("已启用，但原始文件已丢失，请重新上传后再解析")
+    } else {
+      proxy.$modal.msgSuccess("已启用，正在重新解析")
+    }
+    if (detailDoc.value && detailDoc.value.id === doc.id) {
+      detailDoc.value = { ...detailDoc.value, ...data }
+    }
+    getList()
+  }).catch(() => {
+    proxy.$modal.closeLoading()
+  })
+}
+
+function handleFolderDisable(doc) {
+  disableDocument(doc.id).then(() => {
+    proxy.$modal.msgSuccess("已停用")
+    getList()
+  }).catch(() => {})
 }
 
 function getList() {
@@ -378,3 +506,137 @@ function handleDelLink(row) {
 loadSpaceOptions()
 getList()
 </script>
+
+<style scoped lang="scss">
+.doc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.doc-toolbar__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.doc-toolbar__hint {
+  font-size: 12px;
+  color: #9a9ea1;
+}
+
+.doc-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  :deep(.right-toolbar) {
+    float: none;
+    margin-left: 0;
+  }
+}
+
+.view-switch {
+  :deep(.el-radio-button__inner) {
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+}
+
+.doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 300px);
+  justify-content: start;
+  gap: 8px 10px;
+  padding: 8px 2px 22px;
+  min-height: 220px;
+}
+
+.doc-grid__empty {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+
+.detail-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(22, 22, 24, 0.06);
+}
+
+.detail-ext {
+  flex: none;
+  width: 48px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px 12px 12px 8px;
+  background: linear-gradient(180deg, #a9ece7 0%, #4fc1ba 100%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  box-shadow: 0 10px 18px -14px rgba(6, 72, 68, 0.8);
+}
+
+.detail-head__text {
+  min-width: 0;
+}
+
+.detail-name {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 21px;
+  color: #1b1c1e;
+  word-break: break-all;
+}
+
+.detail-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #8b8f92;
+}
+
+.detail-desc {
+  margin-top: 18px;
+
+  :deep(.el-descriptions__label) {
+    width: 96px;
+    color: #75787a;
+  }
+
+  :deep(.el-descriptions__content) {
+    color: #1b1c1e;
+    word-break: break-all;
+  }
+}
+
+.detail-error {
+  color: #c0453f;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(22, 22, 24, 0.06);
+
+  :deep(.el-button + .el-button) {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .doc-grid {
+    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+    justify-content: stretch;
+  }
+}
+</style>
