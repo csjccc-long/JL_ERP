@@ -80,6 +80,8 @@ ragflow:
    mysql -uroot -p ry-vue < sql/ry_20260417.sql
    mysql -uroot -p ry-vue < sql/quartz.sql
    mysql -uroot -p ry-vue < sql/erp_knowledge_20261101.sql
+   mysql -uroot -p ry-vue < sql/erp_checkin.sql          # 可选：个人中心每日打卡
+   mysql -uroot -p ry-vue < sql/erp_day_task.sql         # 可选：打卡当日待办/自动化演示数据
    ```
 
    `erp_knowledge_20261101.sql` 可重复执行：先定向清理 `sys_menu(2000-3999)`、`sys_role(2001-2006)`、`sys_user(200-205)`、`sys_dept(200-204)`、`erp_\*` 字典与全部业务表，再重建并写入演示数据。
