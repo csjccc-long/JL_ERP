@@ -15,7 +15,8 @@ export function listByBusiness(businessType, businessId) {
   return request({ url: '/knowledge/document/by-business', method: 'get', params: { businessType, businessId } })
 }
 
-// 上传文档（onUploadProgress 用于回显真实上传进度）
+// 上传文档：这个弹窗有自己的波浪进度层（选完文件即显形），
+// 所以这里关掉右下角的全局浮层，避免同一时刻出现两层波浪。
 export function uploadDocument(formData, onUploadProgress) {
   return request({
     url: '/knowledge/document/upload',
@@ -23,6 +24,7 @@ export function uploadDocument(formData, onUploadProgress) {
     headers: { 'Content-Type': 'multipart/form-data' },
     data: formData,
     timeout: 180000,
+    uploadProgress: false,
     onUploadProgress
   })
 }

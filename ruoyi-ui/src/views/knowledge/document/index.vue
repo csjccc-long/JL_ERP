@@ -143,16 +143,15 @@
               :accept="uploadAccept"
               @change="onFilePicked"
             />
-            <div v-if="uploading" class="upload-stage">
+            <div v-if="uploadForm.file && stageVisible" class="upload-stage">
               <image-gen-loader
-                :progress="uploadPercent"
-                :text="uploadStageText"
-                :caption="uploadForm.file ? uploadForm.file.name : ''"
+                :progress="stageProgress"
+                :text="stageText"
+                :colors="stageColors"
                 :cell-size="3"
                 :gap="1"
-                :band-height="48"
-                :wave-amplitude="10"
-                :colors="['#22d3ee', '#1e40af']"
+                :band-height="42"
+                :wave-amplitude="9"
                 :overlay-opacity="0"
               />
             </div>
@@ -260,10 +259,10 @@
 
 <script setup name="KbDocument">
 import { useRoute } from "vue-router"
+import ImageGenLoader from "@/components/ImageGenLoader/index.vue"
 import { listDocument, uploadDocument, retryDocument, disableDocument, enableDocument, listLinks, addLink, delLink, downloadDocument } from "@/api/knowledge/document"
 import { spaceOptions } from "@/api/knowledge/space"
 import FilePreview from "@/components/FilePreview"
-import ImageGenLoader from "@/components/ImageGenLoader/index.vue"
 import DocFolder from "./components/DocFolder"
 
 const { proxy } = getCurrentInstance()
@@ -277,11 +276,24 @@ const showSearch = ref(true)
 const total = ref(0)
 const uploadOpen = ref(false)
 const uploading = ref(false)
-/** 上传进度 0~100，用于点阵波浪进度条 */
+/** 上传波浪：ready 选完文件即显形，uploading 跟真实字节走，done/error 收尾 */
+const uploadPhase = ref("ready")
 const uploadPercent = ref(0)
-/** 上传完成、等待后端解析时的文案 */
-const uploadParsing = ref(false)
-const uploadStageText = computed(() => (uploadParsing.value ? "解析中" : "上传中"))
+const stageVisible = ref(false)
+const stageProgress = computed(() => {
+  if (uploadPhase.value === "done") return 100
+  if (uploadPhase.value === "uploading") return Math.min(99, uploadPercent.value)
+  return null
+})
+const stageText = computed(() => {
+  const map = { ready: "准备上传", uploading: "上传中", done: "上传完成", error: "上传失败" }
+  return map[uploadPhase.value] || "准备上传"
+})
+const stageColors = computed(() => {
+  if (uploadPhase.value === "error") return ["#fda4af", "#9f1239"]
+  if (uploadPhase.value === "done") return ["#5eead4", "#0f766e"]
+  return ["#22d3ee", "#1e40af"]
+})
 const fileInputRef = ref(null)
 const dragOver = ref(false)
 const previewOpen = ref(false)
@@ -425,8 +437,9 @@ function resetQuery() {
 function handleUpload() {
   uploadForm.value = { spaceId: queryParams.value.spaceId, stableKey: undefined, businessType: undefined, businessId: undefined, file: undefined }
   if (fileInputRef.value) fileInputRef.value.value = ""
+  stageVisible.value = false
+  uploadPhase.value = "ready"
   uploadPercent.value = 0
-  uploadParsing.value = false
   uploadOpen.value = true
 }
 
@@ -449,6 +462,9 @@ function applyFile(file) {
     return
   }
   uploadForm.value.file = file
+  uploadPhase.value = "ready"
+  uploadPercent.value = 0
+  stageVisible.value = true
 }
 
 function onFilePicked(event) {
@@ -465,6 +481,9 @@ function onFileDrop(event) {
 
 function clearFile() {
   uploadForm.value.file = undefined
+  stageVisible.value = false
+  uploadPhase.value = "ready"
+  uploadPercent.value = 0
   if (fileInputRef.value) fileInputRef.value.value = ""
 }
 
@@ -490,29 +509,33 @@ function submitUpload() {
       formData.append("relationType", "ATTACHMENT")
     }
     uploading.value = true
+    uploadPhase.value = "uploading"
     uploadPercent.value = 0
-    uploadParsing.value = false
     uploadDocument(formData, event => {
-      // 浏览器真实上传进度；total 缺失时用文件大小兜底
-      const bytes = event.total || file.size || 0
-      if (!bytes) return
-      const percent = Math.min(99, Math.round((event.loaded / bytes) * 100))
-      if (percent > uploadPercent.value) uploadPercent.value = percent
+      const total = (event && event.total) || file.size || 0
+      const loaded = (event && event.loaded) || 0
+      if (total > 0) {
+        const percent = Math.min(99, Math.round((loaded / total) * 100))
+        if (percent > uploadPercent.value) uploadPercent.value = percent
+      }
     }).then(() => {
-      // 文件已传完，等后端入库 + 提交解析，先让进度条走满
+      // 文件已传完，稍等后端入库并提交解析
       uploadPercent.value = 100
-      uploadParsing.value = true
-      return new Promise(resolve => setTimeout(resolve, 700))
+      uploadPhase.value = "done"
+      return new Promise(resolve => setTimeout(resolve, 850))
     }).then(() => {
       proxy.$modal.msgSuccess("上传成功，正在提交解析")
       uploading.value = false
-      uploadParsing.value = false
       uploadOpen.value = false
+      stageVisible.value = false
+      uploadPhase.value = "ready"
       getList()
     }).catch(() => {
       uploading.value = false
-      uploadParsing.value = false
-      uploadPercent.value = 0
+      uploadPhase.value = "error"
+      setTimeout(() => {
+        if (uploadPhase.value === "error") uploadPhase.value = "ready"
+      }, 1800)
     })
   })
 }
@@ -743,23 +766,25 @@ getList()
 
 .upload-stage {
   position: absolute;
-  inset: 0;
+  inset: 0 0 52px 0;
   z-index: 3;
-  border-radius: 12px;
   overflow: hidden;
-  background: #ffffff;
+  border-radius: 12px;
+  background: #fff;
   box-shadow: 0 6px 22px rgba(20, 60, 58, 0.12);
+  pointer-events: none;
   animation: upload-stage-in 0.22s ease-out;
 }
 
 @keyframes upload-stage-in {
   from {
     opacity: 0;
-    transform: scale(0.985);
+    transform: scale(0.98);
   }
+
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: none;
   }
 }
 

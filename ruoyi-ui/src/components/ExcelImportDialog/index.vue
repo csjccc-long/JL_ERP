@@ -1,6 +1,6 @@
 <template>
   <el-dialog :title="title" v-model="visible" :width="width" append-to-body @close="handleClose">
-    <el-upload ref="uploadRef" :limit="1" accept=".xlsx, .xls" :headers="headers" :action="uploadUrl" :disabled="isUploading" :on-progress="handleProgress" :on-change="handleFileChange" :on-remove="handleFileRemove" :on-success="handleSuccess" :auto-upload="false" drag>
+    <el-upload ref="uploadRef" :limit="1" accept=".xlsx, .xls" :headers="headers" :action="uploadUrl" :disabled="isUploading" :on-progress="handleProgress" :on-error="handleError" :on-change="handleFileChange" :on-remove="handleFileRemove" :on-success="handleSuccess" :auto-upload="false" drag>
       <el-icon class="el-icon--upload"><upload-filled /></el-icon>
       <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
       <template #tip>
@@ -24,6 +24,7 @@
 
 <script setup>
 import { getToken } from '@/utils/auth'
+import { beginUpload, endUpload, updateUploadBytes, updateUpload } from '@/utils/upload-progress'
 
 const { proxy } = getCurrentInstance()
 
@@ -98,9 +99,33 @@ function handleDownloadTemplate() {
   proxy.download(props.templateAction, {}, `${props.templateFileName}_${new Date().getTime()}.xlsx`)
 }
 
-// 上传进度
-function handleProgress() {
+// el-upload 回调拿到的是 UploadFile，原始 File 在 .raw 上
+function uploadIdOf(file) {
+  const raw = file && (file.raw || file)
+  return raw ? raw.__uploadId : null
+}
+
+// 上传进度（接入全局波浪动效浮层）
+function handleProgress(event, file) {
   isUploading.value = true
+  const raw = file && (file.raw || file)
+  if (!raw) return
+  if (!raw.__uploadId) raw.__uploadId = beginUpload(file.name || raw.name, file.size || raw.size)
+  const id = raw.__uploadId
+  if (!id) return
+  if (event && event.total) {
+    updateUploadBytes(id, event.loaded, event.total)
+  } else {
+    updateUpload(id, event && event.percent)
+  }
+}
+
+// 上传失败
+function handleError(err, file) {
+  const id = uploadIdOf(file)
+  if (id) endUpload(id, false)
+  isUploading.value = false
+  proxy.$modal.msgError('导入失败，请检查文件内容后重试')
 }
 
 /** 文件选择处理 */
@@ -114,7 +139,9 @@ const handleFileRemove = (file, fileList) => {
 }
 
 // 上传成功
-function handleSuccess(response) {
+function handleSuccess(response, file) {
+  const id = uploadIdOf(file)
+  if (id) endUpload(id, true)
   visible.value = false
   isUploading.value = false
   selectedFile.value = null

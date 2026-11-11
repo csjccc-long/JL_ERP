@@ -5,6 +5,7 @@
       :before-upload="handleBeforeUpload"
       :on-success="handleUploadSuccess"
       :on-error="handleUploadError"
+      :on-progress="handleUploadProgress"
       name="file"
       :show-file-list="false"
       :headers="headers"
@@ -31,6 +32,7 @@ import axios from 'axios'
 import { QuillEditor } from "@vueup/vue-quill"
 import "@vueup/vue-quill/dist/vue-quill.snow.css"
 import { getToken } from "@/utils/auth"
+import { beginUpload, endUpload, updateUploadBytes, updateUpload } from "@/utils/upload-progress"
 
 const { proxy } = getCurrentInstance()
 
@@ -146,11 +148,32 @@ function handleBeforeUpload(file) {
       return false
     }
   }
+  // 接入全局上传进度（波浪动效浮层）
+  file.__uploadId = beginUpload(file.name, file.size)
   return true
+}
+
+// el-upload 回调拿到的是 UploadFile，原始 File 在 .raw 上（before-upload 时打的标记在那里）
+function uploadIdOf(file) {
+  const raw = file && (file.raw || file)
+  return raw && raw.__uploadId
+}
+
+// 上传进度
+function handleUploadProgress(event, file) {
+  const id = uploadIdOf(file)
+  if (!id) return
+  if (event && event.total) {
+    updateUploadBytes(id, event.loaded, event.total)
+  } else {
+    updateUpload(id, event && event.percent)
+  }
 }
 
 // 上传成功处理
 function handleUploadSuccess(res, file) {
+  const id = uploadIdOf(file)
+  if (id) endUpload(id, res.code == 200)
   // 如果上传成功
   if (res.code == 200) {
     // 获取富文本实例
@@ -167,7 +190,9 @@ function handleUploadSuccess(res, file) {
 }
 
 // 上传失败处理
-function handleUploadError() {
+function handleUploadError(err, file) {
+  const id = uploadIdOf(file)
+  if (id) endUpload(id, false)
   proxy.$modal.msgError("图片插入失败")
 }
 
@@ -189,8 +214,16 @@ function handlePasteCapture(e) {
 function insertImage(file) {
   const formData = new FormData()
   formData.append("file", file)
-  axios.post(uploadUrl.value, formData, { headers: { "Content-Type": "multipart/form-data", Authorization: headers.value.Authorization } }).then(res => {
+  const uploadId = beginUpload(file.name, file.size)
+  axios.post(uploadUrl.value, formData, {
+    headers: { "Content-Type": "multipart/form-data", Authorization: headers.value.Authorization },
+    onUploadProgress: (event) => updateUploadBytes(uploadId, event.loaded, event.total)
+  }).then(res => {
+    endUpload(uploadId, res.data && res.data.code == 200)
     handleUploadSuccess(res.data)
+  }).catch(() => {
+    endUpload(uploadId, false)
+    proxy.$modal.msgError("图片插入失败")
   })
 }
 </script>

@@ -9,6 +9,7 @@
       :limit="limit"
       :on-error="handleUploadError"
       :on-exceed="handleExceed"
+      :on-progress="handleUploadProgress"
       :on-success="handleUploadSuccess"
       :show-file-list="false"
       :headers="headers"
@@ -43,6 +44,7 @@
 <script setup>
 import { getToken } from "@/utils/auth"
 import Sortable from 'sortablejs'
+import { beginUpload, endUpload, updateUploadBytes, updateUpload } from '@/utils/upload-progress'
 
 const props = defineProps({
   modelValue: [String, Object, Array],
@@ -143,9 +145,27 @@ function handleBeforeUpload(file) {
       return false
     }
   }
-  proxy.$modal.loading("正在上传文件，请稍候...")
+  // 接入全局上传进度（波浪动效浮层）
+  file.__uploadId = beginUpload(file.name, file.size)
   number.value++
   return true
+}
+
+// el-upload 回调拿到的是 UploadFile，原始 File 在 .raw 上（before-upload 时打的标记在那里）
+function uploadIdOf(file) {
+  const raw = file && (file.raw || file)
+  return raw && raw.__uploadId
+}
+
+// 上传进度
+function handleUploadProgress(event, file) {
+  const id = uploadIdOf(file)
+  if (!id) return
+  if (event && event.total) {
+    updateUploadBytes(id, event.loaded, event.total)
+  } else {
+    updateUpload(id, event && event.percent)
+  }
 }
 
 // 文件个数超出
@@ -154,19 +174,21 @@ function handleExceed() {
 }
 
 // 上传失败
-function handleUploadError(err) {
+function handleUploadError(err, file) {
+  const id = uploadIdOf(file)
+  if (id) endUpload(id, false)
   proxy.$modal.msgError("上传文件失败")
-  proxy.$modal.closeLoading()
 }
 
 // 上传成功回调
 function handleUploadSuccess(res, file) {
+  const id = uploadIdOf(file)
+  if (id) endUpload(id, res.code === 200)
   if (res.code === 200) {
     uploadList.value.push({ name: res.fileName, url: res.fileName })
     uploadedSuccessfully()
   } else {
     number.value--
-    proxy.$modal.closeLoading()
     proxy.$modal.msgError(res.msg)
     proxy.$refs.fileUpload.handleRemove(file)
     uploadedSuccessfully()
@@ -186,7 +208,6 @@ function uploadedSuccessfully() {
     uploadList.value = []
     number.value = 0
     emit("update:modelValue", listToString(fileList.value))
-    proxy.$modal.closeLoading()
   }
 }
 

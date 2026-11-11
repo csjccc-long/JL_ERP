@@ -6,6 +6,7 @@ import { tansParams, blobValidate } from '@/utils/ruoyi'
 import cache from '@/plugins/cache'
 import { saveAs } from 'file-saver'
 import useUserStore from '@/store/modules/user'
+import { beginUpload, endUpload, pickUploadFile, updateUploadBytes } from '@/utils/upload-progress'
 
 let downloadLoadingInstance
 // 是否显示重新登录
@@ -30,6 +31,21 @@ service.interceptors.request.use(config => {
   const interval = (config.headers || {}).interval || 1000
   if (getToken() && !isToken) {
     config.headers['Authorization'] = 'Bearer ' + getToken() // 让每个请求携带自定义token 请根据实际情况自行修改
+  }
+  // 所有 FormData 上传统一接入全局上传进度（可通过 uploadProgress: false 关闭）
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData && config.uploadProgress !== false) {
+    const file = pickUploadFile(config.data)
+    const fileName = file && file.name ? file.name : '文件'
+    const fileSize = file && file.size ? file.size : 0
+    const uploadId = beginUpload(fileName, fileSize)
+    config.__uploadId = uploadId
+    const originOnUploadProgress = config.onUploadProgress
+    config.onUploadProgress = (event) => {
+      updateUploadBytes(uploadId, event && event.loaded, event && event.total)
+      if (typeof originOnUploadProgress === 'function') {
+        originOnUploadProgress(event)
+      }
+    }
   }
   // get请求映射params参数
   if (config.method === 'get' && config.params) {
@@ -60,6 +76,8 @@ service.interceptors.request.use(config => {
       if (s_data === requestObj.data && requestObj.time - s_time < interval && s_url === requestObj.url) {
         const message = '数据正在处理，请勿重复提交'
         console.warn(`[${s_url}]: ` + message)
+        // 这次请求不会再发出去，及时收起刚建立的上传进度
+        if (config.__uploadId) endUpload(config.__uploadId, false)
         return Promise.reject(new Error(message))
       } else {
         cache.session.setJSON('sessionObj', requestObj)
@@ -78,6 +96,10 @@ service.interceptors.response.use(res => {
     const code = res.data.code || 200
     // 获取错误信息
     const msg = errorCode[code] || res.data.msg || errorCode['default']
+    // 上传请求：无论成功失败都结束对应的全局进度
+    if (res.config && res.config.__uploadId) {
+      endUpload(res.config.__uploadId, code === 200)
+    }
     // 二进制数据则直接返回
     if (res.request.responseType ===  'blob' || res.request.responseType ===  'arraybuffer') {
       return res.data
@@ -110,6 +132,9 @@ service.interceptors.response.use(res => {
   },
   error => {
     console.log('err' + error)
+    if (error.config && error.config.__uploadId) {
+      endUpload(error.config.__uploadId, false)
+    }
     let { message } = error
     if (message == "Network Error") {
       message = "后端接口连接异常"
