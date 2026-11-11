@@ -347,7 +347,7 @@ function handleSelectionChange(selection) {
 /** 角色状态修改 */
 function handleStatusChange(row) {
   let text = row.status === "0" ? "启用" : "停用"
-  proxy.$modal.confirm('确认要"' + text + '""' + row.roleName + '"角色吗?').then(function () {
+  proxy.$modal.confirm('确认要' + text + '角色「' + row.roleName + '」吗？').then(function () {
     return changeRoleStatus(row.roleId, row.status)
   }).then(() => {
     proxy.$modal.msgSuccess(text + "成功")

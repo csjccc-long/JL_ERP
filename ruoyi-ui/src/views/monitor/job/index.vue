@@ -348,7 +348,7 @@ function handleRowClick(row, column, event) {
 function handleStatusChange(row) {
   const next = row.status === "0" ? "1" : "0"
   const text = next === "0" ? "启用" : "停用"
-  proxy.$modal.confirm('确认要"' + text + '""' + row.jobName + '"任务吗?').then(function () {
+  proxy.$modal.confirm('确认要' + text + '任务「' + row.jobName + '」吗？').then(function () {
     return changeJobStatus(row.jobId, next)
   }).then(() => {
     row.status = next
@@ -360,7 +360,7 @@ function handleStatusChange(row) {
 
 /* 立即执行一次 */
 function handleRun(row) {
-  proxy.$modal.confirm('确认要立即执行一次"' + row.jobName + '"任务吗?').then(function () {
+  proxy.$modal.confirm('确认要立即执行一次任务「' + row.jobName + '」吗？').then(function () {
     return runJob(row.jobId, row.jobGroup)
   }).then(() => {
     proxy.$modal.msgSuccess("执行成功")
