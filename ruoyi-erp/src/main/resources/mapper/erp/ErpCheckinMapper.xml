@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.erp.mapper.ErpCheckinMapper">
+
+    <select id="selectByUserAndDate" resultType="ErpCheckin">
+        select checkin_id, user_id, user_name, checkin_date, checkin_time, actions, source
+        from erp_checkin
+        where user_id = #{userId} and checkin_date = #{checkinDate}
+        limit 1
+    </select>
+
+    <select id="selectCheckinRows" resultType="java.util.LinkedHashMap">
+        select date_format(checkin_date, '%Y-%m-%d') as checkinDate,
+               date_format(checkin_time, '%Y-%m-%d %H:%i:%s') as checkinTime,
+               actions
+        from erp_checkin
+        where user_id = #{userId}
+          and checkin_date &gt;= #{start}
+          and checkin_date &lt;= #{end}
+        order by checkin_date asc
+    </select>
+
+    <select id="selectLoginCountByDay" resultType="java.util.LinkedHashMap">
+        select date_format(login_time, '%Y-%m-%d') as day, count(1) as amount
+        from sys_logininfor
+        where user_name = #{userName}
+          and status = '0'
+          and login_time &gt;= #{start}
+          and login_time &lt; #{end}
+        group by date_format(login_time, '%Y-%m-%d')
+    </select>
+
+    <select id="selectOperCountByDay" resultType="java.util.LinkedHashMap">
+        select date_format(oper_time, '%Y-%m-%d') as day, count(1) as amount
+        from sys_oper_log
+        where oper_name = #{userName}
+          and oper_time &gt;= #{start}
+          and oper_time &lt; #{end}
+        group by date_format(oper_time, '%Y-%m-%d')
+    </select>
+
+    <insert id="insertErpCheckin" parameterType="ErpCheckin" useGeneratedKeys="true" keyProperty="checkinId">
+        insert into erp_checkin (user_id, user_name, checkin_date, checkin_time, actions, source, remark, create_time, update_time)
+        values (#{userId}, #{userName}, #{checkinDate}, #{checkinTime}, #{actions}, #{source}, #{remark}, sysdate(), sysdate())
+    </insert>
+
+    <select id="countByUser" resultType="int">
+        select count(1) from erp_checkin where user_id = #{userId}
+    </select>
+</mapper>

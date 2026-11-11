@@ -71,6 +71,7 @@
             </header>
 
             <div ref="digitsRef" class="badge__hero">
+              <span class="badge__hero-label">手机号：</span>
               <span class="badge__sr">{{ phoneAria }}</span>
               <span class="badge__digits" aria-hidden="true">
                 <span
@@ -1195,9 +1196,23 @@ const onTransitionEnd = event => {
 /* 手机号：11 个格子，输入一位就翻上去一位 */
 .badge__hero {
   position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   align-self: flex-start;
   padding: 4px 6px;
   margin: -4px -6px;
+}
+
+.badge__hero-label {
+  flex: none;
+  color: var(--badge-ink-faint);
+  font-size: clamp(20px, 2.6vw, 27px);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: var(--emboss-soft);
 }
 
 .badge__digits {
@@ -1402,7 +1417,8 @@ const onTransitionEnd = event => {
 
 @media (max-width: 720px) {
   .badge {
-    --badge-half: 2px;
+    /* 卡面必须高于卡芯最高一层（z=5.5），否则窄屏下会被整卡不透明的卡芯盖住 */
+    --badge-half: 6px;
   }
 
   .badge__body {

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.erp.mapper.ErpDayTaskMapper">
+
+    <select id="selectByDate" resultType="ErpDayTask">
+        select day_task_id, task_date, task_type, title, detail, status, owner, ref_code, started_time, finished_time
+        from erp_day_task
+        where task_date = #{taskDate}
+        order by started_time asc, day_task_id asc
+    </select>
+
+    <select id="countFailedByDay" resultType="java.util.LinkedHashMap">
+        select date_format(task_date, '%Y-%m-%d') as day, count(1) as amount
+        from erp_day_task
+        where status = 'FAILED'
+          and task_date &gt;= #{start}
+          and task_date &lt;= #{end}
+        group by date_format(task_date, '%Y-%m-%d')
+    </select>
+
+    <select id="countByStatus" resultType="java.util.LinkedHashMap">
+        select status, count(1) as amount
+        from erp_day_task
+        where task_date &gt;= #{start}
+          and task_date &lt;= #{end}
+        group by status
+    </select>
+
+    <select id="selectApprovalEvents" resultType="java.util.LinkedHashMap">
+        select id, business_type, business_id, action, to_status, opinion, operator_name,
+               date_format(operate_time, '%H:%i') as operateTime,
+               date_format(operate_time, '%Y-%m-%d %H:%i:%s') as operateAt
+        from erp_approval_record
+        where operate_time &gt;= #{start}
+          and operate_time &lt; date_add(#{end}, interval 1 day)
+        order by operate_time asc
+    </select>
+</mapper>
