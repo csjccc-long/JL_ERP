@@ -457,30 +457,7 @@ body {
   border-radius: 2px;
 }
 
-#app .el-dialog,
-.el-message-box {
-  border-radius: 14px;
-  box-shadow: 0 16px 48px rgba(16, 24, 40, 0.16);
-}
-
-#app .el-dialog__header {
-  padding: 20px 24px 12px;
-  margin-right: 0;
-}
-
-#app .el-dialog__title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--app-text);
-}
-
-#app .el-dialog__body {
-  padding: 8px 24px 4px;
-}
-
-#app .el-dialog__footer {
-  padding: 12px 24px 20px;
-}
+// 对话框 / 消息框样式统一由 assets/styles/dialog.scss 提供
 
 #app .el-drawer__header {
   margin-bottom: 0;

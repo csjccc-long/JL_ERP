@@ -1,7 +1,35 @@
 <template>
   <div class="lock-container">
-    <!-- 动态粒子背景 -->
-    <canvas ref="particleCanvas" class="particle-bg"></canvas>
+    <!-- 动态粒子背景：WebGL 粒子球体 + 鼠标视差 + 点击冲击波 -->
+    <particles-bg
+      class="particle-bg"
+      :particle-count="200"
+      :particle-colors="['#ffffff', '#ffffff', '#ffffff']"
+      :particle-spread="10"
+      :speed="0.1"
+      :particle-base-size="100"
+      :glow="0.5"
+      :twinkle="0.3"
+      move-particles-on-hover
+      hover-effect="parallax"
+      :size-randomness="1"
+      shape="circle"
+      :depth-of-field="0"
+      :connections="false"
+      :connection-distance="110"
+      :particle-hover-factor="1"
+      :hover-radius="140"
+      drift="none"
+      :drift-speed="1"
+      :alpha-particles="false"
+      :disable-rotation="false"
+      :camera-distance="20"
+      :variation="0"
+      :opacity="1"
+      click-burst
+      intro
+      :light-mode="false"
+    />
 
     <!-- 时钟 -->
     <div class="lock-time">{{ currentTime }}</div>
@@ -38,6 +66,7 @@ import { useRouter } from 'vue-router'
 import useUserStore from '@/store/modules/user'
 import useLockStore from '@/store/modules/lock'
 import { unlockScreen } from '@/api/login'
+import ParticlesBg from '@/components/ParticlesBg/index.vue'
 import defAva from '@/assets/images/profile.jpg'
 
 const router = useRouter()
@@ -51,11 +80,8 @@ const isShaking = ref(false)
 const currentTime = ref('')
 const currentDate = ref('')
 const passwordInput = ref(null)
-const particleCanvas = ref(null)
 
 let timer = null
-let animationId = null
-let particles = []
 
 const onAvatarError = (e) => {
   e.target.src = defAva
@@ -108,66 +134,13 @@ const goLogin = () => {
   })
 }
 
-const initParticles = () => {
-  const canvas = particleCanvas.value
-  if (!canvas) return
-  const ctx = canvas.getContext('2d')
-  const resize = () => {
-    canvas.width = window.innerWidth
-    canvas.height = window.innerHeight
-  }
-  resize()
-  window.addEventListener('resize', resize)
-
-  particles = Array.from({ length: 80 }, () => ({
-    x: Math.random() * canvas.width,
-    y: Math.random() * canvas.height,
-    r: Math.random() * 2 + 1,
-    dx: (Math.random() - 0.5) * 0.6,
-    dy: (Math.random() - 0.5) * 0.6,
-    alpha: Math.random() * 0.5 + 0.2
-  }))
-
-  const draw = () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    particles.forEach(p => {
-      ctx.beginPath()
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-      ctx.fillStyle = `rgba(255,255,255,${p.alpha})`
-      ctx.fill()
-      p.x += p.dx
-      p.y += p.dy
-      if (p.x < 0 || p.x > canvas.width) p.dx *= -1
-      if (p.y < 0 || p.y > canvas.height) p.dy *= -1
-    })
-    for (let i = 0; i < particles.length; i++) {
-      for (let j = i + 1; j < particles.length; j++) {
-        const a = particles[i], b = particles[j]
-        const dist = Math.hypot(a.x - b.x, a.y - b.y)
-        if (dist < 120) {
-          ctx.beginPath()
-          ctx.moveTo(a.x, a.y)
-          ctx.lineTo(b.x, b.y)
-          ctx.strokeStyle = `rgba(255,255,255,${0.15 * (1 - dist / 120)})`
-          ctx.lineWidth = 0.5
-          ctx.stroke()
-        }
-      }
-    }
-    animationId = requestAnimationFrame(draw)
-  }
-  draw()
-}
-
 onMounted(() => {
   startClock()
-  initParticles()
   nextTick(() => passwordInput.value?.focus())
 })
 
 onBeforeUnmount(() => {
   clearInterval(timer)
-  cancelAnimationFrame(animationId)
 })
 </script>
 
@@ -190,6 +163,7 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   z-index: 0;
+  pointer-events: none;
 }
 
 .lock-time {

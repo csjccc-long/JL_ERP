@@ -15,14 +15,15 @@ export function listByBusiness(businessType, businessId) {
   return request({ url: '/knowledge/document/by-business', method: 'get', params: { businessType, businessId } })
 }
 
-// 上传文档
-export function uploadDocument(formData) {
+// 上传文档（onUploadProgress 用于回显真实上传进度）
+export function uploadDocument(formData, onUploadProgress) {
   return request({
     url: '/knowledge/document/upload',
     method: 'post',
     headers: { 'Content-Type': 'multipart/form-data' },
     data: formData,
-    timeout: 180000
+    timeout: 180000,
+    onUploadProgress
   })
 }
 

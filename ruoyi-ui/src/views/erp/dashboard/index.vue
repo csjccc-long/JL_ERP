@@ -16,14 +16,25 @@
           <template #header>
             <div class="card-header">
               <span>近 {{ trendDays }} 天入库金额趋势</span>
-              <el-select v-model="trendDays" size="small" style="width: 110px" @change="loadTrend">
-                <el-option label="近 7 天" :value="7" />
-                <el-option label="近 30 天" :value="30" />
-                <el-option label="近 90 天" :value="90" />
-              </el-select>
+              <div class="card-tools">
+                <chart-mode-switch v-model="trendMode" />
+                <el-select v-model="trendDays" size="small" style="width: 110px" @change="loadTrend">
+                  <el-option label="近 7 天" :value="7" />
+                  <el-option label="近 30 天" :value="30" />
+                  <el-option label="近 90 天" :value="90" />
+                </el-select>
+              </div>
             </div>
           </template>
-          <div ref="trendChartRef" class="chart"></div>
+          <div class="chart-box">
+            <div ref="trendChartRef" class="chart" v-show="trendMode === '2d'"></div>
+            <ridge-chart
+              v-if="trendMode === '3d' && trendList.length"
+              class="chart-ridge"
+              :labels="trendLabels"
+              :series="trendSeries"
+            />
+          </div>
         </el-card>
       </el-col>
       <el-col :xs="24" :md="12">
@@ -31,9 +42,42 @@
           <template #header>
             <div class="card-header">
               <span>采购订单状态分布</span>
+              <span class="card-extra">共 {{ orderStatusTotal }} 单</span>
             </div>
           </template>
-          <div ref="statusChartRef" class="chart"></div>
+          <div class="status-body">
+            <template v-if="statusSegments.length">
+              <DonutChart
+                :data="statusSegments"
+                :size="236"
+                :stroke-width="28"
+                :animation-duration="1.2"
+                :animation-delay-per-segment="0.06"
+                :active-label="hoveredStatusLabel"
+                aria-label="采购订单状态分布环形图"
+                @segment-hover="handleStatusHover"
+              >
+                <template #center="{ total, hovered, percent }">
+                  <Transition name="donut-center" mode="out-in">
+                    <div :key="hovered ? hovered.label : 'total'" class="status-center">
+                      <p class="status-center__label">{{ hovered ? hovered.label : "订单总数" }}</p>
+                      <p class="status-center__value">{{ hovered ? hovered.value : total }}</p>
+                      <p v-if="hovered" class="status-center__percent">占比 {{ Math.round(percent) }}%</p>
+                    </div>
+                  </Transition>
+                </template>
+              </DonutChart>
+
+              <DonutChartLegend
+                class="status-legend"
+                :data="statusSegments"
+                :total="orderStatusTotal"
+                :active-label="hoveredStatusLabel"
+                @hover="handleStatusHover"
+              />
+            </template>
+            <el-empty v-else-if="!loading" description="暂无采购订单数据" :image-size="70" />
+          </div>
         </el-card>
       </el-col>
     </el-row>
@@ -125,6 +169,10 @@
 import * as echarts from "echarts"
 import { getOverview, getPending, getLowStock, getReceiptTrend } from "@/api/erp/dashboard"
 import { auditOverview } from "@/api/knowledge/audit"
+import DonutChart from "@/components/DonutChart/index.vue"
+import DonutChartLegend from "@/components/DonutChart/Legend.vue"
+import RidgeChart from "@/components/RidgeChart/index.vue"
+import ChartModeSwitch from "@/components/ChartModeSwitch/index.vue"
 
 const { erp_business_type, erp_order_status, erp_audit_status } = useDict("erp_business_type", "erp_order_status", "erp_audit_status")
 
@@ -136,9 +184,57 @@ const topQuestions = ref([])
 const recentFailures = ref([])
 const trendDays = ref(30)
 const trendChartRef = ref(null)
-const statusChartRef = ref(null)
+const trendList = ref([])
+const trendMode = ref("2d")
+const statusRaw = ref([])
+const hoveredStatus = ref(null)
 let trendChart = null
-let statusChart = null
+
+// 采购订单状态配色（按 erp_order_status 字典语义）
+const STATUS_COLORS = {
+  DRAFT: "#b2b5b7",
+  PENDING_APPROVAL: "#faad14",
+  APPROVED: "#00beb4",
+  PARTIALLY_RECEIVED: "#f7863b",
+  RECEIVED: "#3ba05c",
+  REJECTED: "#d8494b",
+  CANCELLED: "#8f9aa6"
+}
+const STATUS_FALLBACK_COLORS = ["#5b8ff9", "#9270ca", "#ff9d4d", "#269a99", "#ff99c3", "#66b2ff"]
+
+const statusSegments = computed(() => {
+  const dictOrder = []
+  const dictLabels = {}
+  erp_order_status.value.forEach(item => {
+    dictOrder.push(item.value)
+    dictLabels[item.value] = item.label
+  })
+  const list = (statusRaw.value || []).map(item => {
+    const key = item.orderStatus || item.status || ""
+    return {
+      key,
+      label: dictLabels[key] || key || "未知",
+      value: Number(item.count || item.total || 0)
+    }
+  })
+  list.sort((a, b) => {
+    const ai = dictOrder.indexOf(a.key)
+    const bi = dictOrder.indexOf(b.key)
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
+  })
+  return list.map((item, index) => ({
+    ...item,
+    color: STATUS_COLORS[item.key] || STATUS_FALLBACK_COLORS[index % STATUS_FALLBACK_COLORS.length]
+  }))
+})
+
+const orderStatusTotal = computed(() => statusSegments.value.reduce((sum, item) => sum + item.value, 0))
+
+const hoveredStatusLabel = computed(() => hoveredStatus.value?.label ?? null)
+
+function handleStatusHover(segment) {
+  hoveredStatus.value = segment || null
+}
 
 function formatAmount(value) {
   const num = Number(value || 0)
@@ -166,7 +262,7 @@ function loadOverview() {
     const data = response.data || {}
     const overview = data.cards || data
     cards.value = buildCards(overview)
-    renderStatusChart(data.orderStatus || overview.orderStatus || [])
+    statusRaw.value = data.orderStatus || overview.orderStatus || []
     loading.value = false
   }).catch(() => {
     loading.value = false
@@ -195,9 +291,28 @@ function loadLowStock() {
 
 function loadTrend() {
   getReceiptTrend(trendDays.value).then(response => {
-    renderTrendChart(response.data || [])
+    trendList.value = response.data || []
+    renderTrendChart(trendList.value)
   })
 }
+
+const trendLabels = computed(() =>
+  trendList.value.map(item => {
+    const raw = item.bizDate || item.date || item.days || ""
+    return raw ? String(raw).slice(5) : ""
+  })
+)
+
+const trendSeries = computed(() => [
+  { name: "入库金额", color: "#00beb4", values: trendList.value.map(item => Number(item.amount || item.receiptAmount || 0)) }
+])
+
+watch(trendMode, mode => {
+  if (mode !== "2d") return
+  nextTick(() => {
+    trendChart && trendChart.resize()
+  })
+})
 
 function renderTrendChart(list) {
   if (!trendChartRef.value) return
@@ -230,38 +345,8 @@ function renderTrendChart(list) {
   }, true)
 }
 
-function renderStatusChart(list) {
-  if (!statusChartRef.value) return
-  if (!statusChart) {
-    statusChart = echarts.init(statusChartRef.value)
-  }
-  const orderDictMap = {}
-  erp_order_status.value.forEach(item => {
-    orderDictMap[item.value] = item.label
-  })
-  const data = (list || []).map(item => {
-    const key = item.orderStatus || item.status
-    return { name: orderDictMap[key] || key || "未知", value: Number(item.count || item.total || 0) }
-  })
-  statusChart.setOption({
-    tooltip: { trigger: "item" },
-    legend: { bottom: 0 },
-    series: [
-      {
-        name: "订单状态",
-        type: "pie",
-        radius: ["40%", "65%"],
-        avoidLabelOverlap: true,
-        label: { formatter: "{b}: {c}" },
-        data: data
-      }
-    ]
-  }, true)
-}
-
 function resizeCharts() {
   trendChart && trendChart.resize()
-  statusChart && statusChart.resize()
 }
 
 onMounted(() => {
@@ -276,9 +361,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener("resize", resizeCharts)
   trendChart && trendChart.dispose()
-  statusChart && statusChart.dispose()
   trendChart = null
-  statusChart = null
 })
 </script>
 
@@ -304,8 +387,76 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
 }
+.chart-box {
+  position: relative;
+  height: 300px;
+}
 .chart {
   height: 300px;
   width: 100%;
+}
+.chart-ridge {
+  position: absolute;
+  inset: 0;
+}
+.card-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.card-extra {
+  color: #909399;
+  font-size: 12px;
+  font-weight: 400;
+}
+.status-body {
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.status-legend {
+  flex: 1 1 190px;
+  max-width: 260px;
+}
+.status-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 140px;
+}
+.status-center__label {
+  margin: 0;
+  max-width: 100%;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #75787a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.status-center__value {
+  margin: 2px 0 0;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: #161618;
+  font-variant-numeric: tabular-nums;
+}
+.status-center__percent {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #00a89f;
+}
+.donut-center-enter-active,
+.donut-center-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.donut-center-enter-from,
+.donut-center-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
 }
 </style>

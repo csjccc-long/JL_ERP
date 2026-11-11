@@ -33,10 +33,16 @@
       <el-col :span="1.5">
         <el-button plain icon="Download" @click="handleExport" v-hasPermi="['erp:order:export']">导出</el-button>
       </el-col>
+      <el-col :span="3">
+        <el-radio-group v-model="viewMode" size="small" class="view-switch">
+          <el-radio-button value="table">列表</el-radio-button>
+          <el-radio-button value="ticket">卡片</el-radio-button>
+        </el-radio-group>
+      </el-col>
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
     </el-row>
 
-    <el-table v-loading="loading" :data="orderList" @selection-change="handleSelectionChange">
+    <el-table v-if="viewMode === 'table'" v-loading="loading" :data="orderList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
       <el-table-column label="订单编号" align="center" prop="orderNo" width="150" />
       <el-table-column label="供应商" align="center" prop="supplierName" min-width="180" show-overflow-tooltip />
@@ -65,6 +71,25 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <div v-else ref="gridRef" v-loading="loading" class="ticket-grid">
+      <ticket-card
+        v-for="row in orderList"
+        :key="row.id"
+        :width="ticketWidth"
+        label="采购订单"
+        :sublabel="row.supplierName || '未指定供应商'"
+        :name="row.orderNo || '未编号'"
+        :footer="ticketFooter(row)"
+        :stub="statusLabelOf(row.orderStatus)"
+        :watermark="yearOf(row.orderDate)"
+        :palette="ticketPalette(row)"
+        :status="row.orderStatus"
+        :progress="orderProgress[row.id] || 0.5"
+        @click="handleUpdate(row)"
+      />
+      <el-empty v-if="!loading && orderList.length === 0" description="暂无采购订单" :image-size="96" class="ticket-empty" />
+    </div>
 
     <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
 
@@ -208,11 +233,14 @@ import { listRequest } from "@/api/erp/request"
 import { listMaterial } from "@/api/erp/material"
 import { submitOrder, approveOrder, cancelOrder } from "@/api/erp/workflow"
 import AssistantPanel from "@/components/AssistantPanel/index.vue"
+import TicketCard from "@/components/TicketCard/index.vue"
 
 const { proxy } = getCurrentInstance()
 const { erp_order_status } = useDict("erp_order_status")
 
 const orderList = ref([])
+/** 部分到货订单的已入库比例：{ [orderId]: 0~1 }，驱动票券的像素水位 */
+const orderProgress = ref({})
 const supplierOptions = ref([])
 const contractOptions = ref([])
 const requestOptions = ref([])
@@ -229,6 +257,10 @@ const approveOpen = ref(false)
 const knowledgeOpen = ref(false)
 const currentBusinessId = ref(undefined)
 const currentBusinessName = ref("")
+const viewMode = ref(window.localStorage.getItem("erp:order:view") === "ticket" ? "ticket" : "table")
+const gridRef = ref(null)
+const ticketWidth = ref(320)
+let gridObserver = null
 
 const data = reactive({
   form: { items: [] },
@@ -256,6 +288,81 @@ function formatAmount(value) {
   return Number(value).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+const TICKET_PALETTES = {
+  DRAFT: { back: "#8b8574", front: "#e9e3d4", highlight: "#cfc6b2", ink: "#3b372c" },
+  PENDING_APPROVAL: { back: "#d98a2b", front: "#ffe1b2", highlight: "#f8c169", ink: "#452c10" },
+  APPROVED: { back: "#0f9c92", front: "#c2efe9", highlight: "#69d7ce", ink: "#0d3532" },
+  PARTIALLY_RECEIVED: { back: "#d76b2a", front: "#ffd1b1", highlight: "#f69f66", ink: "#43230f" },
+  RECEIVED: { back: "#3d8f5b", front: "#cfeeda", highlight: "#93d3aa", ink: "#12331f" },
+  REJECTED: { back: "#b84540", front: "#f6d1ce", highlight: "#e28f8a", ink: "#3a1210" },
+  CANCELLED: { back: "#6c717a", front: "#dde1e6", highlight: "#b2b8c0", ink: "#20242a" }
+}
+
+function ticketPalette(row) {
+  return TICKET_PALETTES[row.orderStatus] || TICKET_PALETTES.DRAFT
+}
+
+function statusLabelOf(value) {
+  const target = (erp_order_status.value || []).find(item => item.value === value)
+  return target ? target.label : (value || "未知")
+}
+
+function ticketFooter(row) {
+  const date = row.orderDate || "未填日期"
+  const amount = row.totalAmount === null || row.totalAmount === undefined || row.totalAmount === ""
+    ? "-"
+    : "¥" + (Number(row.totalAmount) / 10000).toFixed(1) + "万"
+  return date + " · " + amount
+}
+
+function yearOf(date) {
+  const text = String(date || "")
+  return text.length >= 4 ? text.slice(0, 4) : "ERP"
+}
+
+function measureTickets() {
+  const el = gridRef.value
+  if (!el) return
+  const width = el.clientWidth
+  if (!width) return
+  const gap = 20
+  const min = 300
+  const cols = Math.max(1, Math.min(4, Math.floor((width + gap) / (min + gap))))
+  ticketWidth.value = Math.floor((width - gap * (cols - 1)) / cols)
+}
+
+function observeTickets() {
+  if (gridObserver) {
+    gridObserver.disconnect()
+    gridObserver = null
+  }
+  nextTick(() => {
+    measureTickets()
+    if (!gridRef.value) return
+    gridObserver = new ResizeObserver(measureTickets)
+    gridObserver.observe(gridRef.value)
+  })
+}
+
+watch(viewMode, value => {
+  window.localStorage.setItem("erp:order:view", value)
+  if (value === "ticket") {
+    observeTickets()
+    loadOrderProgress()
+  }
+})
+
+if (viewMode.value === "ticket") {
+  onMounted(() => observeTickets())
+}
+
+onBeforeUnmount(() => {
+  if (gridObserver) {
+    gridObserver.disconnect()
+    gridObserver = null
+  }
+})
+
 function canCancel(row) {
   return ["DRAFT", "PENDING_APPROVAL", "APPROVED"].includes(row.orderStatus)
 }
@@ -266,6 +373,37 @@ function getList() {
     orderList.value = response.rows
     total.value = response.total
     loading.value = false
+    if (viewMode.value === "ticket") loadOrderProgress()
+  })
+}
+
+/**
+ * 列表接口不带明细，部分到货的票券要显示真实水位就得逐单取一次明细，
+ * 用 sum(receivedQuantity) / sum(quantity) 作为像素填充比例。
+ */
+function loadOrderProgress() {
+  const targets = orderList.value.filter(row => row.orderStatus === "PARTIALLY_RECEIVED")
+  if (!targets.length) {
+    orderProgress.value = {}
+    return
+  }
+  Promise.all(
+    targets.map(row =>
+      getOrder(row.id)
+        .then(response => {
+          const items = (response.data && response.data.items) || []
+          const plan = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+          const received = items.reduce((sum, item) => sum + Number(item.receivedQuantity || 0), 0)
+          return [row.id, plan > 0 ? Math.min(1, received / plan) : 0.5]
+        })
+        .catch(() => [row.id, 0.5])
+    )
+  ).then(entries => {
+    const map = {}
+    entries.forEach(([id, ratio]) => {
+      map[id] = ratio
+    })
+    orderProgress.value = map
   })
 }
 
@@ -461,3 +599,35 @@ function handleExport() {
 getList()
 getOptions()
 </script>
+
+<style scoped>
+.view-switch {
+  display: flex;
+  align-items: center;
+  height: 32px;
+}
+
+.view-switch :deep(.el-radio-button__inner) {
+  padding: 8px 14px;
+  font-weight: 500;
+}
+
+.ticket-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px;
+  min-height: 240px;
+  padding: 6px 2px 18px;
+}
+
+.ticket-empty {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .ticket-grid {
+    gap: 14px;
+  }
+}
+</style>

@@ -87,31 +87,32 @@
          <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
       </el-row>
 
-      <el-table v-loading="loading" :data="jobList" @selection-change="handleSelectionChange">
+      <el-table
+         v-loading="loading"
+         :data="jobList"
+         class="job-table"
+         :row-class-name="jobRowClass"
+         @selection-change="handleSelectionChange"
+         @row-click="handleRowClick"
+      >
          <el-table-column type="selection" width="55" align="center" />
-         <el-table-column label="任务编号" width="100" align="center" prop="jobId" />
-         <el-table-column label="任务名称" align="center" :show-overflow-tooltip="true">
+         <el-table-column label="任务编号" width="100" align="center" prop="jobId" class-name="job-col-strike" />
+         <el-table-column label="任务名称" align="left" class-name="job-col-strike job-col-name">
             <template #default="scope">
-               <a class="link-type" style="cursor:pointer" @click="handleView(scope.row)">{{ scope.row.jobName }}</a>
+               <div class="job-name">
+                  <job-status :status="scope.row.status" @toggle="handleStatusChange(scope.row)">
+                     <a class="job-name__text" @click.stop.prevent="handleView(scope.row)">{{ scope.row.jobName }}</a>
+                  </job-status>
+               </div>
             </template>
          </el-table-column>
-         <el-table-column label="任务组名" align="center" prop="jobGroup">
+         <el-table-column label="任务组名" align="center" prop="jobGroup" class-name="job-col-strike">
             <template #default="scope">
                <dict-tag :options="sys_job_group" :value="scope.row.jobGroup" />
             </template>
          </el-table-column>
-         <el-table-column label="调用目标字符串" align="center" prop="invokeTarget" :show-overflow-tooltip="true" />
-         <el-table-column label="cron执行表达式" align="center" prop="cronExpression" :show-overflow-tooltip="true" />
-         <el-table-column label="状态" align="center">
-            <template #default="scope">
-               <el-switch
-                  v-model="scope.row.status"
-                  active-value="0"
-                  inactive-value="1"
-                  @change="handleStatusChange(scope.row)"
-               ></el-switch>
-            </template>
-         </el-table-column>
+         <el-table-column label="调用目标字符串" align="center" prop="invokeTarget" :show-overflow-tooltip="true" class-name="job-col-strike" />
+         <el-table-column label="cron执行表达式" align="center" prop="cronExpression" :show-overflow-tooltip="true" class-name="job-col-strike" />
          <el-table-column label="操作" align="center" width="200" class-name="small-padding fixed-width">
             <template #default="scope">
                <el-tooltip content="修改" placement="top">
@@ -240,6 +241,7 @@
 
 <script setup name="Job">
 import Crontab from '@/components/Crontab'
+import JobStatus from '@/components/JobStatus/index.vue'
 import JobDetail from './detail'
 import { listJob, getJob, delJob, addJob, updateJob, runJob, changeJobStatus } from "@/api/monitor/job"
 
@@ -328,15 +330,31 @@ function handleSelectionChange(selection) {
   multiple.value = !selection.length
 }
 
-// 任务状态修改
+/** 暂停行整体置灰、划线 */
+function jobRowClass({ row }) {
+  return row.status === "1" ? "job-row job-row--off" : "job-row"
+}
+
+// 整行即开关：点击行（操作区除外）切换启停
+function handleRowClick(row, column, event) {
+  const el = event.target
+  if (!el || typeof el.closest !== "function") return
+  if (column && column.label === "操作") return
+  if (el.closest(".el-checkbox, .el-button, a, .job-check")) return
+  handleStatusChange(row)
+}
+
+// 任务状态修改（确认并提交成功后才切换状态，勾选动效在此时播放）
 function handleStatusChange(row) {
-  let text = row.status === "0" ? "启用" : "停用"
+  const next = row.status === "0" ? "1" : "0"
+  const text = next === "0" ? "启用" : "停用"
   proxy.$modal.confirm('确认要"' + text + '""' + row.jobName + '"任务吗?').then(function () {
-    return changeJobStatus(row.jobId, row.status)
+    return changeJobStatus(row.jobId, next)
   }).then(() => {
+    row.status = next
     proxy.$modal.msgSuccess(text + "成功")
   }).catch(function () {
-    row.status = row.status === "0" ? "1" : "0"
+    // 取消或接口失败都不改变状态，无需回滚
   })
 }
 
@@ -433,3 +451,53 @@ function handleExport() {
 
 getList()
 </script>
+
+<style scoped lang="scss">
+.job-table {
+  :deep(.el-table__row) {
+    cursor: pointer;
+    transition: background-color 0.24s ease;
+  }
+
+  /* 暂停行：整体降饱和（任务名颜色由勾选组件自己过渡） */
+  :deep(.job-row--off) {
+    td.el-table__cell {
+      color: #a7acb2;
+    }
+
+    .el-tag {
+      opacity: 0.62;
+    }
+  }
+}
+
+/* 暂停行：编号 → cron 的文字被划掉 */
+.job-table :deep(.job-row--off td.job-col-strike .cell) {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: #b3b8bd;
+}
+
+/* 任务名称的划线/对勾/烟花由组件（label::before + input 笔画）承担，这里不再重复划线 */
+.job-table :deep(.job-row--off td.job-col-name .cell) {
+  text-decoration: none;
+}
+
+.job-name {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+
+  &__text {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: inherit;
+    transition: color 0.3s ease;
+
+    &:hover {
+      color: var(--el-color-primary);
+    }
+  }
+}
+</style>

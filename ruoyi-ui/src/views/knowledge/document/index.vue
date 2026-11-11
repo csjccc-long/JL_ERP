@@ -143,6 +143,19 @@
               :accept="uploadAccept"
               @change="onFilePicked"
             />
+            <div v-if="uploading" class="upload-stage">
+              <image-gen-loader
+                :progress="uploadPercent"
+                :text="uploadStageText"
+                :caption="uploadForm.file ? uploadForm.file.name : ''"
+                :cell-size="3"
+                :gap="1"
+                :band-height="48"
+                :wave-amplitude="10"
+                :colors="['#22d3ee', '#1e40af']"
+                :overlay-opacity="0"
+              />
+            </div>
           </div>
           <div class="upload-tip">支持 pdf / doc / docx / xls / xlsx / txt / png / jpg / jpeg，单个文件不超过 {{ maxUploadLabel }}</div>
         </el-form-item>
@@ -250,6 +263,7 @@ import { useRoute } from "vue-router"
 import { listDocument, uploadDocument, retryDocument, disableDocument, enableDocument, listLinks, addLink, delLink, downloadDocument } from "@/api/knowledge/document"
 import { spaceOptions } from "@/api/knowledge/space"
 import FilePreview from "@/components/FilePreview"
+import ImageGenLoader from "@/components/ImageGenLoader/index.vue"
 import DocFolder from "./components/DocFolder"
 
 const { proxy } = getCurrentInstance()
@@ -263,6 +277,11 @@ const showSearch = ref(true)
 const total = ref(0)
 const uploadOpen = ref(false)
 const uploading = ref(false)
+/** 上传进度 0~100，用于点阵波浪进度条 */
+const uploadPercent = ref(0)
+/** 上传完成、等待后端解析时的文案 */
+const uploadParsing = ref(false)
+const uploadStageText = computed(() => (uploadParsing.value ? "解析中" : "上传中"))
 const fileInputRef = ref(null)
 const dragOver = ref(false)
 const previewOpen = ref(false)
@@ -406,6 +425,8 @@ function resetQuery() {
 function handleUpload() {
   uploadForm.value = { spaceId: queryParams.value.spaceId, stableKey: undefined, businessType: undefined, businessId: undefined, file: undefined }
   if (fileInputRef.value) fileInputRef.value.value = ""
+  uploadPercent.value = 0
+  uploadParsing.value = false
   uploadOpen.value = true
 }
 
@@ -469,13 +490,29 @@ function submitUpload() {
       formData.append("relationType", "ATTACHMENT")
     }
     uploading.value = true
-    uploadDocument(formData).then(() => {
+    uploadPercent.value = 0
+    uploadParsing.value = false
+    uploadDocument(formData, event => {
+      // 浏览器真实上传进度；total 缺失时用文件大小兜底
+      const bytes = event.total || file.size || 0
+      if (!bytes) return
+      const percent = Math.min(99, Math.round((event.loaded / bytes) * 100))
+      if (percent > uploadPercent.value) uploadPercent.value = percent
+    }).then(() => {
+      // 文件已传完，等后端入库 + 提交解析，先让进度条走满
+      uploadPercent.value = 100
+      uploadParsing.value = true
+      return new Promise(resolve => setTimeout(resolve, 700))
+    }).then(() => {
       proxy.$modal.msgSuccess("上传成功，正在提交解析")
       uploading.value = false
+      uploadParsing.value = false
       uploadOpen.value = false
       getList()
     }).catch(() => {
       uploading.value = false
+      uploadParsing.value = false
+      uploadPercent.value = 0
     })
   })
 }
@@ -692,6 +729,7 @@ getList()
 }
 
 .upload-card {
+  position: relative;
   width: 100%;
   box-sizing: border-box;
   display: flex;
@@ -701,6 +739,28 @@ getList()
   border-radius: 12px;
   background: rgba(0, 190, 180, 0.045);
   box-shadow: 4px 4px 24px rgba(20, 60, 58, 0.08);
+}
+
+.upload-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 6px 22px rgba(20, 60, 58, 0.12);
+  animation: upload-stage-in 0.22s ease-out;
+}
+
+@keyframes upload-stage-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .upload-card__header {

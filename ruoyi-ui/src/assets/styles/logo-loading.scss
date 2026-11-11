@@ -1,0 +1,112 @@
+/* ================= 系统 Loading：logo 叶轮旋转 =================
+   覆盖 Element Plus 的 v-loading / Loading 服务默认弧线动画，
+   统一替换为「金流智能 ERP」logo 的叶轮标记旋转（透明底，无方块边框）。
+   - 用 CSS mask 只保留叶轮形状，颜色由 background-color 决定，
+     所以白底遮罩上是品牌青绿、主色按钮上是白色（currentColor）。
+   - 尺寸/速度/颜色可用 CSS 变量在任意容器上局部调整：
+       .my-card { --logo-loader-size: 26px; --logo-loader-speed: 0.9s; --logo-loader-color: #161618; }
+   ============================================================== */
+
+$logo-loader-mask: "../logo/logo-swirl.png";
+
+@keyframes logo-loader-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes logo-loader-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.62;
+  }
+}
+
+@mixin logo-loader-mask {
+  -webkit-mask-image: url("#{$logo-loader-mask}");
+  mask-image: url("#{$logo-loader-mask}");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.el-loading-mask {
+  --logo-loader-size: 34px;
+  --logo-loader-speed: 1.05s;
+  --logo-loader-color: #00beb4;
+}
+
+.el-loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0 !important;
+  transform: translateY(-50%);
+  text-align: center;
+}
+
+/* 隐藏 Element Plus 默认的圆弧 */
+.el-loading-spinner .circular {
+  display: none !important;
+}
+
+/* 旋转的叶轮：mask 出形状 + 品牌色填充，无底框、无描边 */
+.el-loading-spinner::before {
+  content: "";
+  display: block;
+  width: var(--logo-loader-size);
+  height: var(--logo-loader-size);
+  background-color: var(--logo-loader-color);
+  @include logo-loader-mask;
+  animation: logo-loader-spin var(--logo-loader-speed) linear infinite;
+  will-change: transform;
+}
+
+/* 深色遮罩（下载/上传等 ElLoading.service，背景 rgba(0,0,0,.7)）上换成更亮的青绿，保证对比 */
+.el-loading-mask.is-fullscreen {
+  --logo-loader-size: 52px;
+  --logo-loader-speed: 1.15s;
+  --logo-loader-color: #14d6ca;
+}
+
+.el-loading-spinner .el-loading-text {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  animation: logo-loader-breathe 1.8s ease-in-out infinite;
+}
+
+/* 按钮 / 下拉框等内联 loading 图标（约 13~16px）：同一枚叶轮，颜色跟随按钮文字 */
+.el-icon.is-loading {
+  background-color: currentcolor;
+  @include logo-loader-mask;
+  animation-duration: 1.2s;
+}
+
+.el-icon.is-loading > svg {
+  opacity: 0;
+}
+
+/* 尊重系统「减少动态效果」：保留旋转作为必要反馈，但放慢 */
+@media (prefers-reduced-motion: reduce) {
+  .el-loading-spinner::before {
+    animation-duration: 2.4s;
+  }
+
+  .el-loading-spinner .el-loading-text {
+    animation: none;
+  }
+}

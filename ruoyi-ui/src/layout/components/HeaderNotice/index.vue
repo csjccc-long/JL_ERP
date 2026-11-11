@@ -1,6 +1,6 @@
 <template>
   <div>
-    <el-popover ref="noticePopover" placement="bottom-end" :width="320" trigger="manual" v-model:visible="noticeVisible" popper-class="notice-popover">
+    <el-popover ref="noticePopover" placement="bottom-end" :width="320" trigger="click" :offset="12" v-model:visible="noticeVisible" popper-class="notice-popover">
       <!-- 弹出内容 -->
       <div class="notice-header">
         <span class="notice-title">通知公告</span>
@@ -25,10 +25,34 @@
 
       <!-- 触发器 -->
       <template #reference>
-        <div class="right-menu-item hover-effect notice-trigger" @mouseenter="onNoticeEnter" @mouseleave="onNoticeLeave">
-          <svg-icon icon-class="bell" />
-          <span v-if="unreadCount > 0" class="notice-badge">{{ unreadCount }}</span>
-        </div>
+        <span class="notice-trigger">
+          <bell-toggle
+            ref="bellRef"
+            :pressed="noticeVisible"
+            :off-label="'系统通知'"
+            :on-label="noticeLabel"
+            :label="triggerLabel"
+            :count="unreadCount"
+            badge
+            badge-always
+            size="sm"
+            :radius="18"
+            background="#f4f5f6"
+            color="#3b3d40"
+            on-background="#00beb4"
+            on-color="#ffffff"
+            badge-color="#d8494b"
+            :ring-amplitude="17"
+            :ring-passes="5"
+            :ring-duration="820"
+            :ring-pivot="16"
+            :crossfade-ms="180"
+          >
+            <template #icon>
+              <svg-icon icon-class="bell" />
+            </template>
+          </bell-toggle>
+        </span>
       </template>
     </el-popover>
 
@@ -39,49 +63,57 @@
 
 <script setup>
 import NoticeDetailView from './DetailView'
+import BellToggle from '@/components/BellToggle/index.vue'
 import { listNoticeTop, markNoticeRead, markNoticeReadAll } from '@/api/system/notice'
 
 const noticePopover = ref(null)
+const bellRef = ref(null)
 const noticeList = ref([])
 const unreadCount = ref(0)
 const noticeLoading = ref(false)
 const noticeVisible = ref(false)
-const noticeLeaveTimer = ref(null)
+let pollTimer = null
 const { proxy } = getCurrentInstance()
+
+// 展开态在铃铛上显示的文案（宽度变化会触发胶囊伸缩动画）
+const noticeLabel = computed(() => (unreadCount.value > 0 ? `共 ${unreadCount.value} 条未读` : '通知中心'))
+const triggerLabel = computed(() =>
+  unreadCount.value > 0 ? `系统通知，${unreadCount.value} 条未读` : '系统通知，暂无未读'
+)
+
+function applyList(data, unread) {
+  noticeList.value = data
+  unreadCount.value = unread
+}
 
 // 加载顶部公告列表
 function loadNoticeTop() {
   noticeLoading.value = true
   listNoticeTop().then(res => {
-    noticeList.value = res.data || []
-    unreadCount.value = res.unreadCount !== undefined ? res.unreadCount : noticeList.value.filter(n => !n.isRead).length
+    const list = res.data || []
+    applyList(list, res.unreadCount !== undefined ? res.unreadCount : list.filter(n => !n.isRead).length)
   }).finally(() => {
     noticeLoading.value = false
   })
 }
 
-onMounted(() => loadNoticeTop())
-
-// 鼠标移入铃铛区域
-function onNoticeEnter() {
-  clearTimeout(noticeLeaveTimer.value)
-  noticeVisible.value = true
-  nextTick(() => {
-    const popper = noticePopover.value?.popperRef?.contentRef
-    if (popper && !popper._noticeBound) {
-      popper._noticeBound = true
-      popper.addEventListener('mouseenter', () => clearTimeout(noticeLeaveTimer.value))
-      popper.addEventListener('mouseleave', () => {
-        noticeLeaveTimer.value = setTimeout(() => { noticeVisible.value = false }, 100)
-      })
-    }
-  })
+// 静默轮询：有新通知时摇铃，不打扰已展开的面板
+function refreshNoticeTop() {
+  if (noticeVisible.value) return
+  listNoticeTop().then(res => {
+    const list = res.data || []
+    applyList(list, res.unreadCount !== undefined ? res.unreadCount : list.filter(n => !n.isRead).length)
+  }).catch(() => {})
 }
 
-// 鼠标离开铃铛区域
-function onNoticeLeave() {
-  noticeLeaveTimer.value = setTimeout(() => { noticeVisible.value = false }, 150)
-}
+onMounted(() => {
+  loadNoticeTop()
+  pollTimer = setInterval(refreshNoticeTop, 60000)
+})
+
+onBeforeUnmount(() => {
+  if (pollTimer) clearInterval(pollTimer)
+})
 
 // 预览公告详情
 function previewNotice(item) {
@@ -106,25 +138,12 @@ function markAllRead() {
 
 <style lang="scss" scoped>
 .notice-trigger {
-  position: relative;
-  transform: translateX(-6px);
-  .svg-icon { width: 1.2em; height: 1.2em; vertical-align: -0.2em; }
-  .notice-badge {
-    position: absolute;
-    top: 7px;
-    right: -3px;
-    background: #f56c6c;
-    color: #fff;
-    border-radius: 10px;
-    font-size: 10px;
-    height: 16px;
-    line-height: 16px;
-    padding: 0 4px;
-    min-width: 16px;
-    text-align: center;
-    white-space: nowrap;
-    pointer-events: none;
-  }
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  margin: 0 6px;
+  vertical-align: middle;
+  .svg-icon { fill: currentColor; }
 }
 .notice-popover { padding: 0 !important; }
 .notice-popover .notice-header {

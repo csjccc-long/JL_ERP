@@ -12,15 +12,13 @@
       <template v-if="appStore.device !== 'mobile'">
         <header-search id="header-search" class="right-menu-item" />
 
-        <screenfull id="screenfull" class="right-menu-item hover-effect" />
+        <fullscreen-toggle id="screenfull" />
 
         <el-tooltip content="布局大小" effect="dark" placement="bottom">
           <size-select id="size-select" class="right-menu-item hover-effect" />
         </el-tooltip>
 
-        <el-tooltip content="消息通知" effect="dark" placement="bottom">
-          <header-notice id="header-notice" class="right-menu-item hover-effect" />
-        </el-tooltip>
+        <header-notice id="header-notice" />
       </template>
 
       <el-dropdown @command="handleCommand" class="avatar-container right-menu-item hover-effect" trigger="hover">
@@ -56,7 +54,7 @@ import TopNav from './TopNav'
 import TopBar from './TopBar'
 import Logo from './Sidebar/Logo'
 import Hamburger from '@/components/Hamburger'
-import Screenfull from '@/components/Screenfull'
+import FullscreenToggle from '@/components/FullscreenToggle'
 import SizeSelect from '@/components/SizeSelect'
 import HeaderSearch from '@/components/HeaderSearch'
 import useAppStore from '@/store/modules/app'
