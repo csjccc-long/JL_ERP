@@ -17,7 +17,7 @@
             <div class="card-header">
               <span>近 {{ trendDays }} 天入库金额趋势</span>
               <div class="card-tools">
-                <chart-mode-switch v-model="trendMode" />
+                <chart-mode-switch v-model="trendMode" :options="trendModes" />
                 <el-select v-model="trendDays" size="small" style="width: 110px" @change="loadTrend">
                   <el-option label="近 7 天" :value="7" />
                   <el-option label="近 30 天" :value="30" />
@@ -28,11 +28,14 @@
           </template>
           <div class="chart-box">
             <div ref="trendChartRef" class="chart" v-show="trendMode === '2d'"></div>
-            <ridge-chart
-              v-if="trendMode === '3d' && trendList.length"
-              class="chart-ridge"
+            <rain-chart
+              v-if="trendMode === 'rain' && trendList.length"
+              class="chart-rain"
               :labels="trendLabels"
-              :series="trendSeries"
+              :dates="trendDateKeys"
+              :values="trendAmounts"
+              :counts="trendCounts"
+              :value-format="formatAmount"
             />
           </div>
         </el-card>
@@ -171,7 +174,7 @@ import { getOverview, getPending, getLowStock, getReceiptTrend } from "@/api/erp
 import { auditOverview } from "@/api/knowledge/audit"
 import DonutChart from "@/components/DonutChart/index.vue"
 import DonutChartLegend from "@/components/DonutChart/Legend.vue"
-import RidgeChart from "@/components/RidgeChart/index.vue"
+import RainChart from "@/components/RainChart/index.vue"
 import ChartModeSwitch from "@/components/ChartModeSwitch/index.vue"
 
 const { erp_business_type, erp_order_status, erp_audit_status } = useDict("erp_business_type", "erp_order_status", "erp_audit_status")
@@ -185,7 +188,13 @@ const recentFailures = ref([])
 const trendDays = ref(30)
 const trendChartRef = ref(null)
 const trendList = ref([])
-const trendMode = ref("2d")
+const trendMode = ref("rain")
+
+/** 趋势表现的切换项：默认为「数据成雨」，保留原来的平面折线，不再提供三维山形 */
+const trendModes = [
+  { value: "rain", label: "雨", title: "数据成雨：入库金额化作雨幕" },
+  { value: "2d", label: "2D", title: "平面折线" }
+]
 const statusRaw = ref([])
 const hoveredStatus = ref(null)
 let trendChart = null
@@ -298,14 +307,21 @@ function loadTrend() {
 
 const trendLabels = computed(() =>
   trendList.value.map(item => {
-    const raw = item.bizDate || item.date || item.days || ""
+    const raw = item.statDate || item.bizDate || item.date || item.days || ""
     return raw ? String(raw).slice(5) : ""
   })
 )
 
-const trendSeries = computed(() => [
-  { name: "入库金额", color: "#00beb4", values: trendList.value.map(item => Number(item.amount || item.receiptAmount || 0)) }
-])
+const trendDateKeys = computed(() =>
+  trendList.value.map(item => {
+    const raw = item.statDate || item.bizDate || item.date || item.days || ""
+    return raw ? String(raw).slice(0, 10) : ""
+  })
+)
+
+const trendAmounts = computed(() => trendList.value.map(item => Number(item.amount || item.receiptAmount || 0)))
+
+const trendCounts = computed(() => trendList.value.map(item => Number(item.receiptCount || 0)))
 
 watch(trendMode, mode => {
   if (mode !== "2d") return
@@ -319,7 +335,7 @@ function renderTrendChart(list) {
   if (!trendChart) {
     trendChart = echarts.init(trendChartRef.value)
   }
-  const dates = list.map(item => item.bizDate || item.date || item.days || "")
+  const dates = list.map(item => item.statDate || item.bizDate || item.date || item.days || "")
   const amounts = list.map(item => Number(item.amount || item.receiptAmount || 0))
   trendChart.setOption({
     tooltip: { trigger: "axis" },
@@ -395,7 +411,7 @@ onBeforeUnmount(() => {
   height: 300px;
   width: 100%;
 }
-.chart-ridge {
+.chart-rain {
   position: absolute;
   inset: 0;
 }

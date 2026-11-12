@@ -1,25 +1,17 @@
 <template>
   <div class="chart-mode" role="group" aria-label="图表表现形式">
-    <span class="chart-mode__thumb" :class="{ 'is-3d': is3d }" aria-hidden="true" />
+    <span class="chart-mode__thumb" :style="{ transform: 'translateX(' + activeIndex * 28 + 'px)' }" aria-hidden="true" />
     <button
+      v-for="option in options"
+      :key="option.value"
       type="button"
       class="chart-mode__btn"
-      :class="{ 'is-on': !is3d }"
-      title="平面折线"
-      :aria-pressed="!is3d"
-      @click="pick('2d')"
+      :class="{ 'is-on': modelValue === option.value }"
+      :title="option.title || option.label"
+      :aria-pressed="modelValue === option.value"
+      @click="pick(option.value)"
     >
-      2D
-    </button>
-    <button
-      type="button"
-      class="chart-mode__btn"
-      :class="{ 'is-on': is3d }"
-      title="三维山形"
-      :aria-pressed="is3d"
-      @click="pick('3d')"
-    >
-      3D
+      {{ option.label }}
     </button>
   </div>
 </template>
@@ -28,12 +20,23 @@
 import { computed } from "vue"
 
 const props = defineProps({
-  modelValue: { type: String, default: "2d" }
+  modelValue: { type: String, default: "2d" },
+  /** [{ value, label, title }]，默认平面折线 / 三维山形 */
+  options: {
+    type: Array,
+    default: () => [
+      { value: "2d", label: "2D", title: "平面折线" },
+      { value: "3d", label: "3D", title: "三维山形" }
+    ]
+  }
 })
 
 const emit = defineEmits(["update:modelValue", "change"])
 
-const is3d = computed(() => props.modelValue === "3d")
+const activeIndex = computed(() => {
+  const index = props.options.findIndex(option => option.value === props.modelValue)
+  return index < 0 ? 0 : index
+})
 
 function pick(mode) {
   if (props.modelValue === mode) return
@@ -63,10 +66,6 @@ function pick(mode) {
   background: #fff;
   box-shadow: 0 1px 3px rgba(22, 22, 24, 0.14);
   transition: transform 0.26s cubic-bezier(0.34, 1.3, 0.64, 1);
-}
-
-.chart-mode__thumb.is-3d {
-  transform: translateX(28px);
 }
 
 .chart-mode__btn {

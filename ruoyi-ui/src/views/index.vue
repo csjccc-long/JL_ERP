@@ -58,7 +58,7 @@
               </div>
               <div class="panel-tools">
                 <span class="panel-total">合计 {{ formatAmount(trendTotal) }} · {{ trendCount }} 单</span>
-                <chart-mode-switch v-model="trendMode" class="panel-mode" />
+                <chart-mode-switch v-model="trendMode" class="panel-mode" :options="trendModes" />
                 <el-radio-group v-model="trendDays" size="small" @change="loadTrend">
                   <el-radio-button :value="7">7 天</el-radio-button>
                   <el-radio-button :value="30">30 天</el-radio-button>
@@ -69,11 +69,13 @@
           </template>
           <div class="chart-wrap chart-wrap--trend" v-loading="loadingTrend">
             <div ref="trendChartRef" class="chart" v-show="trendMode === '2d'"></div>
-            <ridge-chart
-              v-if="trendMode === '3d' && !loadingTrend && trendList.length"
-              class="chart-ridge"
+            <rain-chart
+              v-if="trendMode === 'rain' && !loadingTrend && trendList.length"
+              class="chart-rain"
               :labels="trendDates"
-              :series="trendSeries"
+              :dates="trendDateKeys"
+              :values="trendAmounts"
+              :counts="trendCounts"
               :value-format="formatAmount"
             />
             <div v-if="!loadingTrend && !trendList.length" class="chart-empty">
@@ -295,7 +297,7 @@ import { listBalance } from "@/api/erp/inventory"
 import useUserStore from "@/store/modules/user"
 import DonutChart from "@/components/DonutChart/index.vue"
 import DonutChartLegend from "@/components/DonutChart/Legend.vue"
-import RidgeChart from "@/components/RidgeChart/index.vue"
+import RainChart from "@/components/RainChart/index.vue"
 import ChartModeSwitch from "@/components/ChartModeSwitch/index.vue"
 
 const { erp_business_type, erp_order_status } = useDict("erp_business_type", "erp_order_status")
@@ -318,7 +320,13 @@ const lowStockList = ref([])
 const trendDays = ref(30)
 const trendList = ref([])
 const trendChartRef = ref(null)
-const trendMode = ref("2d")
+const trendMode = ref("rain")
+
+/** 趋势表现的切换项：默认为「数据成雨」，保留原来的平面折线，不再提供三维山形 */
+const trendModes = [
+  { value: "rain", label: "雨", title: "数据成雨：入库金额化作雨幕" },
+  { value: "2d", label: "2D", title: "平面折线" }
+]
 
 const statusRaw = ref([])
 
@@ -485,8 +493,15 @@ const trendAmounts = computed(() =>
   trendList.value.map(item => Number(item.amount || item.receiptAmount || 0))
 )
 
-/** 三维山形视图的数据源：与折线图共用同一份区间数据 */
-const trendSeries = computed(() => [{ name: "入库金额", color: "#00beb4", values: trendAmounts.value }])
+/** 与折线、雨幕共用的完整日期，用来匹配每天天气 */
+const trendDateKeys = computed(() =>
+  trendList.value.map(item => {
+    const raw = item.statDate || item.bizDate || item.date || ""
+    return raw ? String(raw).slice(0, 10) : ""
+  })
+)
+
+const trendCounts = computed(() => trendList.value.map(item => Number(item.receiptCount || 0)))
 
 watch(trendMode, mode => {
   if (mode !== "2d") return
@@ -1172,10 +1187,10 @@ onBeforeUnmount(() => {
 }
 
 .chart-wrap--trend {
-  height: 258px;
+  height: 320px;
 }
 
-.chart-ridge {
+.chart-rain {
   position: absolute;
   inset: 0;
 }
@@ -1590,6 +1605,24 @@ onBeforeUnmount(() => {
 
   .panel-total {
     display: none;
+  }
+
+  /* 窄屏时标题与工具栏分两行，避免标题被挤成竖排 */
+  .panel-head {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .panel-title {
+    flex: 1 1 100%;
+    white-space: nowrap;
+  }
+
+  .panel-tools {
+    flex: 1 1 100%;
+    justify-content: space-between;
+    gap: 8px;
   }
 }
 </style>
