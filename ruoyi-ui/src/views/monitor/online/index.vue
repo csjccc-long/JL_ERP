@@ -5,39 +5,58 @@
         <el-card class="globe-card" shadow="never">
           <template #header>
             <div class="card-head">
-              <span class="card-title">在线用户分布</span>
-              <span class="card-extra">
-                {{ onlineCount }} 个会话 · {{ regionStats.length }} 个地区
-              </span>
+              <div class="card-head__main">
+                <span class="card-title">在线用户分布</span>
+                <span v-if="selectedRegion" class="card-subtitle">{{ selectedRegion.name }}</span>
+              </div>
+              <div class="card-head__extra">
+                <span v-if="!selectedRegion" class="card-extra">
+                  {{ onlineCount }} 个会话 · {{ regionStats.length }} 个地区
+                </span>
+                <el-button v-else link type="primary" icon="Back" @click="clearRegion">返回地球</el-button>
+              </div>
             </div>
           </template>
 
           <div class="globe-body">
-            <div class="globe-canvas">
-              <cobe-globe
-                :key="globeKey"
-                :markers="globeMarkers"
-                :arcs="globeArcs"
-                :marker-color="[0, 0.745, 0.706]"
-                :base-color="[1, 1, 1]"
-                :arc-color="[0, 0.745, 0.706]"
-                :glow-color="[0.8, 0.9, 0.9]"
-                :dark="0"
-                :phi="initialPhi"
-                :map-brightness="14"
-                :marker-elevation="0.02"
-                :arc-width="0.4"
-                :arc-height="0.2"
-                :speed="0.0028"
-                :theta="0.22"
-                :diffuse="1.2"
-                :map-samples="16000"
-              />
-              <p v-if="!onlineCount" class="globe-empty">当前没有在线会话</p>
+            <div class="globe-canvas" :class="{ 'is-map': selectedRegion }">
+              <transition name="globe-swap" mode="out-in">
+                <cobe-globe
+                  v-if="!selectedRegion"
+                  :key="'globe-' + globeKey"
+                  :markers="globeMarkers"
+                  :arcs="globeArcs"
+                  :marker-color="[0, 0.745, 0.706]"
+                  :base-color="[1, 1, 1]"
+                  :arc-color="[0, 0.745, 0.706]"
+                  :glow-color="[0.8, 0.9, 0.9]"
+                  :dark="0"
+                  :phi="initialPhi"
+                  :map-brightness="14"
+                  :marker-elevation="0.02"
+                  :arc-width="0.4"
+                  :arc-height="0.2"
+                  :speed="0.0028"
+                  :theta="0.22"
+                  :diffuse="1.2"
+                  :map-samples="16000"
+                  @marker-click="handleMarkerClick"
+                  @marker-hover="handleMarkerHover"
+                />
+                <location-map
+                  v-else
+                  :key="'map-' + selectedRegion.key"
+                  :location="selectedRegion.name"
+                  :coordinates="selectedCoordinates"
+                  :count="selectedRegion.count"
+                  :meta="selectedMeta"
+                />
+              </transition>
+              <p v-if="!onlineCount && !selectedRegion" class="globe-empty">当前没有在线会话</p>
             </div>
 
             <div class="globe-side">
-              <div class="globe-stats">
+              <div v-if="!selectedRegion" class="globe-stats">
                 <div class="globe-stat">
                   <span class="globe-stat__label">在线会话</span>
                   <span class="globe-stat__value">{{ onlineCount }}</span>
@@ -55,7 +74,34 @@
                   <span class="globe-stat__value">{{ intranetCount }}</span>
                 </div>
               </div>
-              <p class="globe-hint">拖动地球可旋转查看；数据来自 Redis 在线会话</p>
+
+              <div v-else class="globe-stats">
+                <div class="globe-stat">
+                  <span class="globe-stat__label">该地区会话</span>
+                  <span class="globe-stat__value">{{ selectedRegion.count }}</span>
+                </div>
+                <div class="globe-stat">
+                  <span class="globe-stat__label">独立用户</span>
+                  <span class="globe-stat__value">{{ selectedUserCount }}</span>
+                </div>
+                <div class="globe-stat">
+                  <span class="globe-stat__label">占在线总数</span>
+                  <span class="globe-stat__value">{{ selectedRegion.share }}%</span>
+                </div>
+                <div class="globe-stat">
+                  <span class="globe-stat__label">地区类型</span>
+                  <span class="globe-stat__value globe-stat__value--text">{{ selectedKindLabel }}登录</span>
+                </div>
+              </div>
+
+              <p class="globe-hint">
+                <template v-if="!selectedRegion">
+                  拖动地球可旋转查看；点击标点或右侧地区切换到该地址街区，悬停标点可查看地区名称
+                </template>
+                <template v-else>
+                  已锁定 {{ selectedRegion.name }}，右侧为同一地址的在线用户；点击「返回地球」查看全部地区
+                </template>
+              </p>
             </div>
           </div>
         </el-card>
@@ -65,36 +111,83 @@
         <el-card class="region-card" shadow="never">
           <template #header>
             <div class="card-head">
-              <span class="card-title">地区分布</span>
-              <span class="card-extra">按登录地点聚合</span>
+              <span class="card-title">{{ selectedRegion ? "当前地址用户" : "地区分布" }}</span>
+              <span class="card-extra">
+                {{ selectedRegion ? selectedRegion.name + " · " + selectedUsers.length + " 个会话" : "按登录地点聚合" }}
+              </span>
             </div>
           </template>
 
-          <ul v-if="regionStats.length" class="region-list">
-            <li
-              v-for="region in regionStats"
-              :key="region.key"
-              class="region-item"
-              :class="{ 'is-active': hoverKey === region.key }"
-              @mouseenter="hoverKey = region.key"
-              @mouseleave="hoverKey = ''"
-            >
-              <div class="region-item__head">
-                <span class="region-item__dot" :style="{ background: region.color }" />
-                <span class="region-item__name">{{ region.name }}</span>
-                <span class="region-item__count">{{ region.count }}</span>
-                <span class="region-item__share">{{ region.share }}%</span>
-              </div>
-              <div class="region-item__bar">
-                <i :style="{ width: region.percent + '%', background: region.color }" />
-              </div>
-            </li>
-          </ul>
-          <el-empty v-else description="暂无在线会话" :image-size="72" />
+          <transition name="panel-swap" mode="out-in">
+            <div v-if="selectedRegion" :key="'users-' + selectedRegion.key" class="region-users">
+              <ul v-if="selectedUsers.length" class="region-user-list">
+                <li
+                  v-for="(user, index) in selectedUsers"
+                  :key="user.tokenId"
+                  class="region-user"
+                  :style="{ animationDelay: index * 0.05 + 's' }"
+                >
+                  <span class="region-user__avatar">{{ (user.userName || "?").slice(0, 1).toUpperCase() }}</span>
+                  <div class="region-user__main">
+                    <div class="region-user__top">
+                      <span class="region-user__name">{{ user.userName }}</span>
+                      <span v-if="user.deptName" class="region-user__dept">{{ user.deptName }}</span>
+                    </div>
+                    <div class="region-user__meta">
+                      <span class="region-user__ip">{{ user.ipaddr || "-" }}</span>
+                      <span class="region-user__sep">·</span>
+                      <span class="region-user__browser">{{ user.browser || "未知浏览器" }}</span>
+                    </div>
+                  </div>
+                  <div class="region-user__side">
+                    <span class="region-user__time">{{ parseTime(user.loginTime, "{m}-{d} {h}:{i}") }}</span>
+                    <el-button
+                      link
+                      type="danger"
+                      v-hasPermi="['monitor:online:forceLogout']"
+                      @click="handleForceLogout(user)"
+                    >
+                      强退
+                    </el-button>
+                  </div>
+                </li>
+              </ul>
+              <el-empty v-else description="该地址暂无在线会话" :image-size="64" />
+              <p class="region-foot">同一地址 {{ selectedRegion.count }} 个会话 · 数据来自 Redis 在线会话</p>
+            </div>
 
-          <p class="region-foot">
-            内网 {{ intranetCount }} 个会话 · 外部 {{ externalCount }} 个会话
-          </p>
+            <div v-else key="regions" class="region-overview">
+              <ul v-if="regionStats.length" class="region-list">
+                <li
+                  v-for="region in regionStats"
+                  :key="region.key"
+                  class="region-item"
+                  :class="{ 'is-active': hoverKey === region.key }"
+                  role="button"
+                  tabindex="0"
+                  @mouseenter="hoverKey = region.key"
+                  @mouseleave="hoverKey = ''"
+                  @click="selectRegion(region)"
+                  @keydown.enter.prevent="selectRegion(region)"
+                >
+                  <div class="region-item__head">
+                    <span class="region-item__dot" :style="{ background: region.color }" />
+                    <span class="region-item__name">{{ region.name }}</span>
+                    <span class="region-item__count">{{ region.count }}</span>
+                    <span class="region-item__share">{{ region.share }}%</span>
+                  </div>
+                  <div class="region-item__bar">
+                    <i :style="{ width: region.percent + '%', background: region.color }" />
+                  </div>
+                </li>
+              </ul>
+              <el-empty v-else description="暂无在线会话" :image-size="72" />
+
+              <p class="region-foot">
+                内网 {{ intranetCount }} 个会话 · 外部 {{ externalCount }} 个会话
+              </p>
+            </div>
+          </transition>
         </el-card>
       </el-col>
     </el-row>
@@ -177,6 +270,7 @@
 <script setup name="Online">
 import { forceLogout, list as initData } from "@/api/monitor/online";
 import CobeGlobe from "@/components/CobeGlobe/index.vue";
+import LocationMap from "@/components/LocationMap/index.vue";
 import { resolveLoginLocation } from "@/utils/geo-city";
 
 const { proxy } = getCurrentInstance();
@@ -188,6 +282,8 @@ const pageNum = ref(1);
 const pageSize = ref(10);
 const hoverKey = ref("");
 const globeKey = ref(0);
+/** 当前锁定的登录地点 key，为空时展示全球视图 */
+const selectedKey = ref("");
 
 const queryParams = ref({
   ipaddr: undefined,
@@ -195,6 +291,7 @@ const queryParams = ref({
 });
 
 const REGION_COLORS = ["#00beb4", "#5b8ff9", "#f7863b", "#9270ca", "#3ba05c", "#e8b30b"];
+const KIND_LABELS = { intranet: "内网", city: "城市", unknown: "未知" };
 
 /** 在线会话总数（RuoYi 在线列表不分页，前端切片） */
 const onlineCount = computed(() => onlineList.value.length);
@@ -234,16 +331,21 @@ const intranetCount = computed(
 );
 const externalCount = computed(() => onlineCount.value - intranetCount.value);
 
-/** 地球上的点位：每个地区一个，数量越多点越大，hover 地区时高亮 */
+/**
+ * 地球上的点位：每个地区一个，数量越多点越大。
+ * 标签会互相压盖，所以只常显会话最多的地区；其余地区在悬停时显示。
+ */
 const globeMarkers = computed(() =>
-  regionStats.value.map((region) => {
+  regionStats.value.map((region, index) => {
     const active = hoverKey.value === region.key;
+    // 只有单个地区时常显标签；多个地区挤在一起时标签会互相压盖，改为悬停显示
+    const alwaysLabel = regionStats.value.length === 1;
     return {
       id: "loc-" + region.key,
+      regionKey: region.key,
       location: [region.lat, region.lng],
-      label: region.name + " · " + region.count,
-      size: (0.018 + Math.min(0.026, Math.sqrt(region.count) * 0.008)) * (active ? 1.45 : 1),
-      color: active ? [0.05, 0.85, 0.8] : undefined
+      label: active || alwaysLabel ? region.name + " · " + region.count : "",
+      size: (0.018 + Math.min(0.026, Math.sqrt(region.count) * 0.008)) * (active ? 1.45 : 1)
     };
   })
 );
@@ -268,6 +370,71 @@ const initialPhi = computed(() => {
   const lng = hub ? hub.lng : 114.0579;
   const phi = (lng * Math.PI) / 180 + 0.9;
   return ((phi % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+});
+
+const selectedRegion = computed(
+  () => regionStats.value.find((region) => region.key === selectedKey.value) || null
+);
+
+const selectedUsers = computed(() => {
+  if (!selectedRegion.value) return [];
+  return onlineList.value.filter(
+    (row) => resolveLoginLocation(row.loginLocation).key === selectedRegion.value.key
+  );
+});
+
+const selectedUserCount = computed(() => new Set(selectedUsers.value.map((row) => row.userName)).size);
+const selectedKindLabel = computed(() =>
+  selectedRegion.value ? KIND_LABELS[selectedRegion.value.kind] || "未知" : ""
+);
+
+function formatCoordinates(lat, lng) {
+  const ns = lat >= 0 ? "N" : "S";
+  const ew = lng >= 0 ? "E" : "W";
+  return Math.abs(lat).toFixed(4) + "° " + ns + ", " + Math.abs(lng).toFixed(4) + "° " + ew;
+}
+
+const selectedCoordinates = computed(() =>
+  selectedRegion.value ? formatCoordinates(selectedRegion.value.lat, selectedRegion.value.lng) : ""
+);
+
+/** 地图卡片上的一行补充信息：该地址的登录 IP */
+const selectedMeta = computed(() => {
+  if (!selectedRegion.value) return "";
+  const ips = [...new Set(selectedUsers.value.map((row) => row.ipaddr).filter(Boolean))];
+  if (!ips.length) return selectedUsers.value.length + " 个会话";
+  const shown = ips.slice(0, 2).join(" / ");
+  return "IP " + shown + (ips.length > 2 ? " 等 " + ips.length + " 个" : "");
+});
+
+/** 点击地球上的标点 → 切换到该地址 */
+function handleMarkerClick(marker) {
+  if (marker?.regionKey) {
+    selectedKey.value = marker.regionKey;
+    hoverKey.value = "";
+  }
+}
+
+/** 鼠标悬停在地球标点上：联动高亮右侧地区行，并显示该地区标签 */
+function handleMarkerHover(marker) {
+  hoverKey.value = marker?.regionKey || "";
+}
+
+function selectRegion(region) {
+  selectedKey.value = region.key;
+  hoverKey.value = "";
+}
+
+function clearRegion() {
+  selectedKey.value = "";
+  hoverKey.value = "";
+}
+
+// 在线会话刷新后，如果锁定的地区已经没有会话，自动回到全球视图
+watch(regionStats, (list) => {
+  if (selectedKey.value && !list.some((region) => region.key === selectedKey.value)) {
+    selectedKey.value = "";
+  }
 });
 
 /** 地球按窗口宽度分档重建，避免 canvas 缩放糊掉 */
@@ -339,10 +506,31 @@ onBeforeUnmount(() => window.removeEventListener("resize", syncGlobeKey));
   justify-content: space-between;
   gap: 12px;
 
+  &__main {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  &__extra {
+    display: flex;
+    align-items: center;
+    flex: none;
+  }
+
   .card-title {
     font-size: 14px;
     font-weight: 600;
     color: var(--app-text, #161618);
+  }
+
+  .card-subtitle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--el-color-primary, #00beb4);
   }
 
   .card-extra {
@@ -355,6 +543,7 @@ onBeforeUnmount(() => window.removeEventListener("resize", syncGlobeKey));
 .region-card {
   height: 100%;
   border-radius: 12px;
+  overflow: hidden;
 }
 
 .globe-card :deep(.el-card__body) {
@@ -375,6 +564,11 @@ onBeforeUnmount(() => window.removeEventListener("resize", syncGlobeKey));
   flex: 0 1 340px;
   min-width: 220px;
   margin: 0 auto;
+
+  &.is-map {
+    flex-basis: 430px;
+    max-width: 520px;
+  }
 }
 
 .globe-empty {
@@ -423,6 +617,11 @@ onBeforeUnmount(() => window.removeEventListener("resize", syncGlobeKey));
     line-height: 1.1;
     color: var(--app-text, #161618);
     font-variant-numeric: tabular-nums;
+
+    &--text {
+      font-size: 16px;
+      line-height: 1.4;
+    }
   }
 }
 
@@ -433,10 +632,51 @@ onBeforeUnmount(() => window.removeEventListener("resize", syncGlobeKey));
   color: var(--app-text-secondary, #75787a);
 }
 
+/* 地球 ↔ 地址街区 的切换动效 */
+.globe-swap-enter-active {
+  animation: view-in 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.globe-swap-leave-active {
+  animation: view-out 0.26s ease both;
+}
+
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes view-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.06);
+    filter: blur(8px);
+  }
+}
+
 .region-card :deep(.el-card__body) {
   display: flex;
   flex-direction: column;
   height: 100%;
+}
+
+.region-overview {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 150px;
 }
 
 .region-list {
@@ -451,11 +691,17 @@ onBeforeUnmount(() => window.removeEventListener("resize", syncGlobeKey));
 .region-item {
   padding: 8px 10px;
   border-radius: 10px;
-  transition: background-color 0.2s ease;
-  cursor: default;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
 
   &.is-active {
     background: var(--el-fill-color-light, #f4f5f6);
+    transform: translateX(2px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--el-color-primary-light-5, #80dfd9);
+    outline-offset: 1px;
   }
 
   &__head {
@@ -520,6 +766,165 @@ onBeforeUnmount(() => window.removeEventListener("resize", syncGlobeKey));
   color: var(--app-text-secondary, #75787a);
 }
 
+/* 同一地址的在线用户列表 */
+.region-users {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 150px;
+}
+
+.region-user-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 340px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.region-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 6px;
+  border-radius: 10px;
+  animation: user-in 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background: var(--el-fill-color-light, #f4f5f6);
+  }
+
+  &__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--el-color-primary-light-9, #e6f9f7);
+    color: var(--el-color-primary-dark-1, #00aba2);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  &__main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--app-text, #161618);
+  }
+
+  &__name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__dept {
+    flex: none;
+    max-width: 96px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 6px;
+    border-radius: 4px;
+    background: var(--el-fill-color-light, #f4f5f6);
+    font-size: 11px;
+    line-height: 18px;
+    color: var(--app-text-secondary, #75787a);
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    font-size: 11px;
+    color: var(--app-text-secondary, #75787a);
+  }
+
+  &__ip {
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  }
+
+  &__sep {
+    opacity: 0.6;
+  }
+
+  &__browser {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__side {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+
+    :deep(.el-button.is-link) {
+      height: 16px;
+      padding: 0;
+      font-size: 11px;
+      color: var(--el-color-danger);
+    }
+  }
+
+  &__time {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--app-text-secondary, #75787a);
+  }
+}
+
+@keyframes user-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.panel-swap-enter-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.panel-swap-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.panel-swap-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.panel-swap-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
 .table-card {
   border-radius: 12px;
 
@@ -528,9 +933,27 @@ onBeforeUnmount(() => window.removeEventListener("resize", syncGlobeKey));
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .globe-swap-enter-active,
+  .globe-swap-leave-active,
+  .region-user {
+    animation: none;
+  }
+
+  .panel-swap-enter-active,
+  .panel-swap-leave-active {
+    transition: none;
+  }
+}
+
 @media (max-width: 1199px) {
   .globe-canvas {
     flex-basis: 280px;
+
+    &.is-map {
+      flex-basis: 100%;
+      max-width: none;
+    }
   }
 
   .globe-card,
@@ -541,6 +964,10 @@ onBeforeUnmount(() => window.removeEventListener("resize", syncGlobeKey));
   .region-card :deep(.el-card__body) {
     height: auto;
     min-height: 150px;
+  }
+
+  .region-user-list {
+    max-height: 320px;
   }
 }
 </style>

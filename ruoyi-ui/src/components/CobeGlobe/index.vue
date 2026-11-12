@@ -4,10 +4,13 @@
       ref="canvasRef"
       class="cobe-globe__canvas"
       @pointerdown="handlePointerDown"
+      @pointermove="handleHover"
+      @pointerleave="clearHover"
     />
     <template v-if="showLabels">
       <div
         v-for="marker in markers"
+        v-show="marker.label"
         :key="marker.id"
         class="cobe-globe__label cobe-globe__label--marker"
         :style="markerLabelStyle(marker)"
@@ -56,11 +59,12 @@ const props = defineProps({
   opacity: { type: Number, default: 0.7 }
 });
 
-const emit = defineEmits(["ready"]);
+const emit = defineEmits(["ready", "marker-click", "marker-hover"]);
 
 const rootRef = ref(null);
 const canvasRef = ref(null);
 const showLabels = ref(true);
+const hoveredId = ref("");
 
 const labelledArcs = computed(() => props.arcs.filter((arc) => arc.label));
 
@@ -75,6 +79,9 @@ const velocity = { phi: 0, theta: 0 };
 const offsets = { phi: 0, theta: 0 };
 const pointer = { x: 0, y: 0, active: false };
 const lastPointer = { x: 0, y: 0, t: 0 };
+const pressPoint = { x: 0, y: 0, t: 0, moved: false };
+/** 当前帧实际使用的旋转角，用于把标记点投影回屏幕坐标 */
+const rotation = { phi: props.phi, theta: props.theta };
 
 const THETA_MIN = -0.4;
 const THETA_MAX = 0.4;
@@ -82,7 +89,7 @@ const THETA_MAX = 0.4;
 function cobeMarkers() {
   return props.markers.map((marker) => ({
     location: marker.location,
-    size: marker.size ?? props.markerSize,
+    size: (marker.size ?? props.markerSize) * (hoveredId.value === marker.id && !pointer.active ? 1.4 : 1),
     id: marker.id
   }));
 }
@@ -121,13 +128,71 @@ function animate() {
       offsets.theta += (THETA_MAX - offsets.theta) * 0.1;
     }
   }
+  const nextPhi = phi + offsets.phi + dragOffset.phi;
+  const nextTheta = props.theta + offsets.theta + dragOffset.theta;
+  rotation.phi = nextPhi;
+  rotation.theta = nextTheta;
   globe.update({
-    phi: phi + offsets.phi + dragOffset.phi,
-    theta: props.theta + offsets.theta + dragOffset.theta,
+    phi: nextPhi,
+    theta: nextTheta,
     markers: cobeMarkers(),
     arcs: cobeArcs()
   });
   frameId = requestAnimationFrame(animate);
+}
+
+/**
+ * 把 [lat, lng] 投影成 canvas 上的像素坐标。
+ * 与 cobe 内部（O/W 函数）保持同一套旋转与正交投影，点选标记时才能对得上。
+ */
+function projectMarker(marker, width, height) {
+  const [lat, lng] = marker.location;
+  const latRad = (lat * Math.PI) / 180;
+  const lngRad = (lng * Math.PI) / 180 - Math.PI;
+  const radius = 0.8 + props.markerElevation;
+  const x = -Math.cos(latRad) * Math.cos(lngRad) * radius;
+  const y = Math.sin(latRad) * radius;
+  const z = Math.cos(latRad) * Math.sin(lngRad) * radius;
+
+  const cosTheta = Math.cos(rotation.theta);
+  const sinTheta = Math.sin(rotation.theta);
+  const cosPhi = Math.cos(rotation.phi);
+  const sinPhi = Math.sin(rotation.phi);
+
+  const px = cosPhi * x + sinPhi * z;
+  const py = sinPhi * sinTheta * x + cosTheta * y - cosPhi * sinTheta * z;
+  const depth = -sinPhi * cosTheta * x + sinTheta * y + cosPhi * cosTheta * z;
+
+  return {
+    x: ((px + 1) / 2) * width,
+    y: ((1 - py) / 2) * height,
+    visible: depth >= 0 || px * px + py * py >= 0.64
+  };
+}
+
+/** 找到鼠标下最近的可见标记（点太小，给足 16px 的命中半径） */
+function hitTest(clientX, clientY) {
+  const canvas = canvasRef.value;
+  if (!canvas || !props.markers.length) return null;
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width) return null;
+
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  let best = null;
+  let bestDistance = Infinity;
+
+  for (const marker of props.markers) {
+    const point = projectMarker(marker, rect.width, rect.height);
+    if (!point.visible) continue;
+    const radius = Math.max(16, (marker.size ?? props.markerSize) * rect.width + 10);
+    const distance = Math.hypot(point.x - x, point.y - y);
+    if (distance <= radius && distance < bestDistance) {
+      bestDistance = distance;
+      best = marker;
+    }
+  }
+  return best;
 }
 
 function init() {
@@ -170,14 +235,42 @@ function handlePointerDown(event) {
   pointer.active = true;
   pointer.x = event.clientX;
   pointer.y = event.clientY;
+  pressPoint.x = event.clientX;
+  pressPoint.y = event.clientY;
+  pressPoint.t = Date.now();
+  pressPoint.moved = false;
   paused = true;
   if (canvasRef.value) canvasRef.value.style.cursor = "grabbing";
+}
+
+/** 悬停在标记上时把光标变成手型，并让该点轻微放大 */
+function handleHover(event) {
+  if (pointer.active) return;
+  const hit = hitTest(event.clientX, event.clientY);
+  const nextId = hit ? hit.id : "";
+  if (nextId !== hoveredId.value) {
+    hoveredId.value = nextId;
+    emit("marker-hover", hit || null);
+  }
+  if (canvasRef.value) canvasRef.value.style.cursor = hit ? "pointer" : "grab";
+}
+
+function clearHover() {
+  if (hoveredId.value) emit("marker-hover", null);
+  hoveredId.value = "";
+  if (canvasRef.value) canvasRef.value.style.cursor = "grab";
 }
 
 function handlePointerMove(event) {
   if (!pointer.active) return;
   const deltaX = event.clientX - pointer.x;
   const deltaY = event.clientY - pointer.y;
+  if (
+    !pressPoint.moved &&
+    (Math.abs(event.clientX - pressPoint.x) > 4 || Math.abs(event.clientY - pressPoint.y) > 4)
+  ) {
+    pressPoint.moved = true;
+  }
   dragOffset.phi = deltaX / 300;
   dragOffset.theta = deltaY / 1000;
 
@@ -193,7 +286,7 @@ function handlePointerMove(event) {
   lastPointer.t = now;
 }
 
-function handlePointerUp() {
+function handlePointerUp(event) {
   if (pointer.active) {
     offsets.phi += dragOffset.phi;
     offsets.theta += dragOffset.theta;
@@ -201,9 +294,15 @@ function handlePointerUp() {
     dragOffset.theta = 0;
     lastPointer.t = 0;
   }
+
+  const wasClick = !pressPoint.moved && Date.now() - pressPoint.t < 800;
   pointer.active = false;
   paused = false;
   if (canvasRef.value) canvasRef.value.style.cursor = "grab";
+
+  if (!wasClick) return;
+  const hit = hitTest(event.clientX, event.clientY);
+  if (hit) emit("marker-click", hit);
 }
 
 function markerLabelStyle(marker) {
